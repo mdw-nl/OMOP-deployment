@@ -1,0 +1,11 @@
+# Credentials
+.env
+
+# Athena vocabulary downloads — large, licensed, not ours to redistribute.
+vocabulary/*
+!vocabulary/README.md
+!vocabulary/.gitkeep
+
+# Local artifacts
+*.log
+.DS_Store

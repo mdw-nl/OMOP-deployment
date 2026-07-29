@@ -1,0 +1,71 @@
+name: omop
+
+services:
+  postgres:
+    # Debian-based, not -alpine: the initdb and helper scripts are bash, and glibc/ICU
+    # collation handles the multilingual concept names in the vocabulary properly.
+    image: postgres:16
+    container_name: omop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-omop}
+      POSTGRES_USER: ${POSTGRES_USER:-omop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      # Consumed by initdb/01_apply_ddl.sh to substitute @cdmDatabaseSchema.
+      CDM_SCHEMA: ${CDM_SCHEMA:-cdm}
+      RESULTS_SCHEMA: ${RESULTS_SCHEMA:-results}
+      TEMP_SCHEMA: ${TEMP_SCHEMA:-temp}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - omop_pgdata:/var/lib/postgresql/data
+      # Runs once, only when the data volume is empty. `make reset` re-triggers it.
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+      - ./ddl:/ddl:ro
+      - ./scripts:/scripts:ro
+      - ./vocabulary:/vocabulary:ro
+    # Defaults are sized for a toy database; the vocabulary load (CONCEPT_ANCESTOR alone
+    # is tens of millions of rows) is the dominant cost of standing this up.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-512MB}
+      - -c
+      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-512MB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-64MB}
+      - -c
+      - max_wal_size=${PG_MAX_WAL_SIZE:-4GB}
+      - -c
+      - synchronous_commit=off
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # The DDL apply runs inside initdb, before Postgres accepts connections.
+      start_period: 60s
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: omop-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?PGADMIN_PASSWORD must be set in .env}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${PGADMIN_PORT:-8080}:80"
+    volumes:
+      - omop_pgadmin:/var/lib/pgadmin
+      # Pre-registers the OMOP connection so there is no manual host/port entry.
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  omop_pgdata:
+  omop_pgadmin:

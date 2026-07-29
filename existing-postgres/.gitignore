@@ -1,0 +1,9 @@
+# Credentials
+.env
+
+# Athena vocabulary downloads — large, licensed, not ours to redistribute.
+vocabulary/*
+!vocabulary/README.md
+
+*.log
+.DS_Store
