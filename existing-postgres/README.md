@@ -88,7 +88,7 @@ container's writable layer.
 
 `make install` stops after the DDL and primary keys. Constraints and indices are held
 back until `make finalize`, which is OHDSI's documented order — adding 176 foreign keys
-and 72 indices before `CONCEPT_ANCESTOR` (tens of millions of rows) lands is the
+and 70 indices before `CONCEPT_ANCESTOR` (tens of millions of rows) lands is the
 difference between minutes and hours.
 
 `make finalize` on an empty vocabulary works but warns: every FK references

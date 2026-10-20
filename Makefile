@@ -17,11 +17,12 @@ POSTGRES_DB    ?= omop
 POSTGRES_USER  ?= omop
 POSTGRES_PORT  ?= 5432
 PGADMIN_PORT   ?= 8080
+VOCAB_READER_USER ?= vocab_reader
 
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init up down logs ps psql load-vocab finalize verify update-ddl reset
+.PHONY: help init up down logs ps psql load-vocab finalize vocab-reader verify update-ddl reset
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 on Postgres"
@@ -75,11 +76,19 @@ load-vocab: ## Load Athena vocabulary CSVs from ./vocabulary
 finalize: ## Apply FK constraints + indices (run after load-vocab)
 	$(DC_EXEC) bash /scripts/finalize.sh
 
+# initdb only runs on an empty volume; this applies the same script to a running one.
+# `up` first recreates the container if .env changed, so it sees the new password.
+vocab-reader: ## Create/update the read-only vocabulary role (VOCAB_READER_* in .env)
+	@test -n "$(VOCAB_READER_PASSWORD)" || { echo "Set VOCAB_READER_PASSWORD in .env first."; exit 1; }
+	$(COMPOSE) up -d postgres
+	$(DC_EXEC) bash /docker-entrypoint-initdb.d/02_vocab_reader.sh
+
 verify: ## Report schema, key/index and row counts
 	@$(DC_EXEC) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -X -q \
 	  -v cdm_schema=$(CDM_SCHEMA) \
 	  -v results_schema=$(RESULTS_SCHEMA) \
 	  -v temp_schema=$(TEMP_SCHEMA) \
+	  -v vocab_reader=$(VOCAB_READER_USER) \
 	  -f /scripts/verify.sql
 
 update-ddl: ## Re-download the OHDSI CDM 5.4 DDL scripts into ddl/

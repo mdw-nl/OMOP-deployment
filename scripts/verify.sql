@@ -1,5 +1,6 @@
 -- Health check for the OMOP CDM deployment.  Run with:  make verify
--- Expects -v cdm_schema=... -v results_schema=... -v temp_schema=... (the Makefile passes them).
+-- Expects -v cdm_schema=... -v results_schema=... -v temp_schema=... -v vocab_reader=...
+-- (the Makefile passes them).
 \set ON_ERROR_STOP on
 \pset footer off
 
@@ -17,7 +18,7 @@ ORDER BY 1;
 \echo
 \echo === CDM 5.4 structure ===
 \echo 'after "up":        39 tables, 28 primary keys,   0 foreign keys,  28 indexes'
-\echo 'after "finalize":  39 tables, 28 primary keys, 176 foreign keys, 100 indexes'
+\echo 'after "finalize":  39 tables, 28 primary keys, 176 foreign keys,  98 indexes'
 \echo
 SELECT
   (SELECT count(*) FROM information_schema.tables
@@ -48,6 +49,15 @@ ORDER BY 1;
 \echo === sanity: concept 8507 should be "Male" once the vocabulary is loaded ===
 SELECT concept_id, concept_name, vocabulary_id, domain_id
 FROM concept WHERE concept_id = 8507;
+
+\echo
+\echo === read-only vocabulary role (empty if VOCAB_READER_PASSWORD is unset) ===
+\echo 'expect 8 vocabulary tables, SELECT only, no clinical tables'
+SELECT table_name, string_agg(privilege_type, ', ') AS privileges
+FROM information_schema.table_privileges
+WHERE grantee = :'vocab_reader' AND table_schema = :'cdm_schema'
+GROUP BY table_name
+ORDER BY 1;
 
 \echo
 \echo === clinical tables (populated by your ETL) ===

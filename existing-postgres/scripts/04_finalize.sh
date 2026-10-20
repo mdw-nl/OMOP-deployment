@@ -35,4 +35,4 @@ idx=$(psql_value -c "SELECT count(*) FROM pg_indexes WHERE schemaname = '${CDM_S
 
 echo
 say "done — ${fks} foreign keys, ${idx} indexes, statistics refreshed"
-say "expected: 176 foreign keys, 100 indexes"
+say "expected: 176 foreign keys, 98 indexes"

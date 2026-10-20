@@ -21,7 +21,7 @@ ORDER BY 1;
 \echo
 \echo === CDM 5.4 structure ===
 \echo 'after "make schema":    39 tables, 28 primary keys,   0 foreign keys,  28 indexes'
-\echo 'after "make finalize":  39 tables, 28 primary keys, 176 foreign keys, 100 indexes'
+\echo 'after "make finalize":  39 tables, 28 primary keys, 176 foreign keys,  98 indexes'
 \echo
 SELECT
   (SELECT count(*) FROM information_schema.tables

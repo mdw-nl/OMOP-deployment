@@ -59,6 +59,18 @@ Running `finalize` on an empty vocabulary works but warns: the constraints all r
 rebuilding the data volume. Schema names are configurable in `.env`; changing
 `CDM_SCHEMA` after the first boot requires `make reset`.
 
+## Read-only vocabulary user
+
+Set `VOCAB_READER_PASSWORD` (and optionally `VOCAB_READER_USER`, default
+`vocab_reader`) in `.env` and container init creates a login role with `SELECT` on
+the vocabulary tables only: `concept`, `concept_synonym`, `concept_relationship`,
+`concept_ancestor`, `concept_class`, `relationship`, `vocabulary`, `domain`. It has
+no access to clinical tables, `drug_strength` or `source_to_concept_map`.
+
+Leave the password empty to skip it. On a volume that already exists, set it and run
+`make vocab-reader`, which is also how you change the password later. Grants survive
+`make load-vocab`, since that truncates rather than recreates the tables.
+
 ## Targets
 
 | Target | Description |
@@ -70,6 +82,7 @@ rebuilding the data volume. Schema names are configurable in `.env`; changing
 | `make psql` | Interactive psql session |
 | `make load-vocab` | Load Athena CSVs from `./vocabulary` |
 | `make finalize` | Apply constraints + indices, refresh statistics |
+| `make vocab-reader` | Create/update the read-only vocabulary role on a running stack |
 | `make verify` | Report schemas, table/key/index counts, row counts |
 | `make update-ddl` | Re-download the OHDSI DDL into `ddl/` |
 | `make reset` | **Destroys the volume** and rebuilds the schema (prompts first) |
@@ -83,6 +96,7 @@ ddl/                   vendored OHDSI 5.4 scripts — do not edit
 initdb/                runs once, on an empty volume only
   00_schemas.sh          creates cdm / results / temp
   01_apply_ddl.sh        substitutes @cdmDatabaseSchema, applies DDL + primary keys
+  02_vocab_reader.sh     optional read-only role on the vocabulary tables
 scripts/
   load_vocabulary.sh     truncate + COPY the nine vocabulary tables
   finalize.sh            constraints + indices + ANALYZE

@@ -3,7 +3,7 @@
 #
 # Constraints and indices are deliberately left for 04_finalize.sh. OHDSI's
 # documented order is DDL -> primary keys -> load data -> constraints -> indices;
-# adding 176 foreign keys and 72 indices before CONCEPT_ANCESTOR (tens of millions
+# adding 176 foreign keys and 70 indices before CONCEPT_ANCESTOR (tens of millions
 # of rows) is loaded is the difference between minutes and hours.
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
