@@ -17,6 +17,8 @@ CDM_SCHEMA="${CDM_SCHEMA:-cdm}"
 CACHE_DIR=/vocab_cache
 # load_vocabulary.sh and finalize.sh address the database through these.
 export POSTGRES_USER="$PGUSER" POSTGRES_DB="$PGDATABASE"
+# Repeated runs would otherwise log a NOTICE for every object that already exists.
+export PGOPTIONS="${PGOPTIONS:-} -c client_min_messages=warning"
 
 log() { echo "[init] $*"; }
 die() { echo "[init] ERROR: $*" >&2; exit 1; }
