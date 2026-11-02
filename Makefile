@@ -22,7 +22,7 @@ VOCAB_READER_USER ?= vocab_reader
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init up down logs ps psql load-vocab finalize vocab-reader verify update-ddl reset
+.PHONY: help init up down logs logs-init ps psql load-vocab finalize vocab-reader verify update-ddl reset
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 on Postgres"
@@ -31,7 +31,8 @@ help: ## Show available targets
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo
 	@echo "First run:  make init  ->  edit .env  ->  make up"
-	@echo "Then:       make load-vocab  ->  make finalize"
+	@echo "Vocabulary: Athena CSVs in ./vocabulary (or VOCAB_URL) load on up;"
+	@echo "            added later: make load-vocab  ->  make finalize"
 
 init: ## Create .env from .env.example
 	@if [ -f .env ]; then \
@@ -41,28 +42,26 @@ init: ## Create .env from .env.example
 	  echo "Created .env — set POSTGRES_PASSWORD and PGADMIN_PASSWORD before 'make up'."; \
 	fi
 
-up: ## Start Postgres + pgAdmin and wait for the schema to be ready
+up: ## Build and start the stack, wait until the database is ready
 	@test -f .env || { echo "No .env — run 'make init' first."; exit 1; }
+	@# omop-init first and followed, as the services after it only start once it is done.
+	@$(COMPOSE) up -d --build postgres pgadmin omop-init \
+	  || { echo "Startup failed. Recent Postgres logs:"; $(COMPOSE) logs --tail=40 postgres; exit 1; }
+	@echo "Preparing the database (the first vocabulary load takes a while)..."
+	@$(COMPOSE) logs -f --no-log-prefix omop-init
+	@code=$$(docker inspect -f '{{.State.ExitCode}}' omop-init); \
+	  [ "$$code" = 0 ] || { echo "omop-init failed (exit $$code), see the log above."; exit 1; }
 	$(COMPOSE) up -d
-	@echo "Waiting for Postgres to become healthy (the DDL applies during init)..."
-	@for i in $$(seq 1 60); do \
-	  status=$$(docker inspect -f '{{.State.Health.Status}}' omop-postgres 2>/dev/null || echo starting); \
-	  if [ "$$status" = "healthy" ]; then \
-	    echo "Postgres healthy on localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)"; \
-	    exit 0; \
-	  fi; \
-	  if [ "$$status" = "unhealthy" ]; then break; fi; \
-	  sleep 2; \
-	done; \
-	echo "Postgres did not come up healthy. Recent logs:"; \
-	$(COMPOSE) logs --tail=40 postgres; \
-	exit 1
+	@echo "Postgres: localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)"
 
 down: ## Stop the stack, keeping data
 	$(COMPOSE) down
 
 logs: ## Tail Postgres logs
 	$(COMPOSE) logs -f postgres
+
+logs-init: ## Show the omop-init log (vocabulary load, finalize, roles)
+	$(COMPOSE) logs omop-init
 
 ps: ## Show container status
 	$(COMPOSE) ps
