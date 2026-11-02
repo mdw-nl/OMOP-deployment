@@ -60,8 +60,10 @@ psql: ## Interactive psql session on the target database
 apps-up: ## Build and start DQD + Superset against TARGET_DB (after install/load-vocab)
 	@test -f .env || { echo "No .env — run 'make init' first."; exit 1; }
 	@# omop-init first and followed, as the services after it only start once it is done.
-	@$(APPS) up -d --build omop-init
-	@$(APPS) logs -f --no-log-prefix omop-init
+	@# --since: a restarted omop-init keeps the log of its earlier runs.
+	@since=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	  $(APPS) up -d --build omop-init && \
+	  $(APPS) logs -f --no-log-prefix --since "$$since" omop-init
 	@code=$$(docker inspect -f '{{.State.ExitCode}}' $$($(APPS) ps -aq omop-init)); \
 	  [ "$$code" = 0 ] || { echo "omop-init failed (exit $$code), see the log above."; exit 1; }
 	$(APPS) up -d

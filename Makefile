@@ -46,10 +46,12 @@ init: ## Create .env from .env.example
 up: ## Build and start the stack, wait until the database is ready
 	@test -f .env || { echo "No .env — run 'make init' first."; exit 1; }
 	@# omop-init first and followed, as the services after it only start once it is done.
-	@$(COMPOSE) up -d --build postgres pgadmin omop-init \
-	  || { echo "Startup failed. Recent Postgres logs:"; $(COMPOSE) logs --tail=40 postgres; exit 1; }
-	@echo "Preparing the database (the first vocabulary load takes a while)..."
-	@$(COMPOSE) logs -f --no-log-prefix omop-init
+	@# --since: a restarted omop-init keeps the log of its earlier runs.
+	@since=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	  $(COMPOSE) up -d --build postgres pgadmin omop-init \
+	  || { echo "Startup failed. Recent Postgres logs:"; $(COMPOSE) logs --tail=40 postgres; exit 1; }; \
+	  echo "Preparing the database (the first vocabulary load takes a while)..."; \
+	  $(COMPOSE) logs -f --no-log-prefix --since "$$since" omop-init
 	@code=$$(docker inspect -f '{{.State.ExitCode}}' omop-init); \
 	  [ "$$code" = 0 ] || { echo "omop-init failed (exit $$code), see the log above."; exit 1; }
 	$(COMPOSE) up -d
