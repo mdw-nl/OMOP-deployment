@@ -69,6 +69,7 @@ Running `finalize` on an empty vocabulary works but warns: the constraints all r
 | `cdm` | All 39 CDM 5.4 tables — clinical and vocabulary |
 | `results` | Empty. For OHDSI Atlas/WebAPI cohorts and Achilles output |
 | `temp` | Empty. Scratch space for OHDSI tooling |
+| `dqd_results` | Data quality check results, see [Data quality checks](#data-quality-checks-dqd) |
 
 `results` and `temp` exist up front so Atlas/WebAPI can be added later without
 rebuilding the data volume. Schema names are configurable in `.env`; changing
@@ -86,6 +87,23 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 `make vocab-reader`, which is also how you change the password later. Grants survive
 `make load-vocab`, since that truncates rather than recreates the tables.
 
+## Data quality checks (DQD)
+
+The `dqd` container runs the [OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/)
+checks against the CDM when it starts and on the schedule in `DQD_SCHEDULE` (cron, UTC,
+default `0 2 * * *`: every night at 02:00). `make dqd` runs them right away. It connects
+as the `dqd` role (`DQD_PASSWORD`), which can read the CDM and owns the `dqd_results`
+schema.
+
+Every run is registered in `dqd_results.run_log` and its results are kept in
+`dqd_results.check_results_history`, so earlier runs stay available for trends. The views
+`dqd_results.v_check_results` and `dqd_results.v_run_summary` give one row per check and
+per run. The JSON output of each run, which the DQD viewer can open, is kept in the
+`omop_dqd_output` volume.
+
+The vocabulary tables and the cohort tables are not checked: the first are DQD's
+default exclusions, the second hold analysis results rather than source data.
+
 ## Targets
 
 | Target | Description |
@@ -95,6 +113,7 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 | `make down` | Stop, keeping data |
 | `make ps` / `make logs` | Status / tail Postgres logs |
 | `make logs-init` | Show what `omop-init` did on the last start |
+| `make dqd` / `make logs-dqd` | Run the data quality checks now / tail their logs |
 | `make psql` | Interactive psql session |
 | `make load-vocab` | Load Athena CSVs from `./vocabulary` |
 | `make finalize` | Apply constraints + indices, refresh statistics |
@@ -106,7 +125,7 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 ## How it fits together
 
 ```
-docker-compose.yml     postgres:16, pgadmin4 and omop-init, healthcheck, named volumes
+docker-compose.yml     postgres:16, pgadmin4, omop-init and dqd, healthcheck, named volumes
 .env                   credentials, ports, schema names, Postgres tuning (gitignored)
 ddl/                   vendored OHDSI 5.4 scripts — do not edit
 initdb/                runs once, on an empty volume only
@@ -115,7 +134,8 @@ initdb/                runs once, on an empty volume only
   02_vocab_reader.sh     optional read-only role on the vocabulary tables
 docker/omop-init/      runs on every start, each step skipped when already done
   init.sh                vocabulary from ./vocabulary or VOCAB_URL, finalize, sql/
-  sql/                   cdm_source placeholder row
+  sql/                   cdm_source placeholder row, dqd role and dqd_results schema
+docker/dqd/            DQD checks on start and on DQD_SCHEDULE (R, supercronic)
 scripts/
   load_vocabulary.sh     truncate + COPY the nine vocabulary tables
   finalize.sh            constraints + indices + ANALYZE

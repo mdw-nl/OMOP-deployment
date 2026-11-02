@@ -66,6 +66,7 @@ services:
       CDM_SCHEMA: ${CDM_SCHEMA:-cdm}
       # Optional; only used when ./vocabulary holds no CSVs and the vocabulary is empty.
       VOCAB_URL: ${VOCAB_URL:-}
+      DQD_PASSWORD: ${DQD_PASSWORD:?DQD_PASSWORD must be set in .env}
     volumes:
       - ./scripts:/scripts:ro
       - ./ddl:/ddl:ro
@@ -75,6 +76,30 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  dqd:
+    # OHDSI Data Quality Dashboard checks, on start and on DQD_SCHEDULE; `make dqd` runs
+    # them now. Results go to the dqd_results schema.
+    build: ./docker/dqd
+    image: omop-dqd:local
+    container_name: omop-dqd
+    restart: unless-stopped
+    environment:
+      DQD_DB_HOST: postgres
+      DQD_DB_PORT: "5432"
+      DQD_DB_NAME: ${POSTGRES_DB:-omop}
+      DQD_DB_PASSWORD: ${DQD_PASSWORD:?DQD_PASSWORD must be set in .env}
+      CDM_SCHEMA: ${CDM_SCHEMA:-cdm}
+      DQD_THREADS: ${DQD_THREADS:-2}
+      # Cron expression, UTC (default: every night at 02:00)
+      DQD_SCHEDULE: ${DQD_SCHEDULE:-0 2 * * *}
+      DQD_RUN_ON_START: ${DQD_RUN_ON_START:-true}
+    volumes:
+      # JSON output of every run, readable by the DQD viewer
+      - omop_dqd_output:/output
+    depends_on:
+      omop-init:
+        condition: service_completed_successfully
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -99,3 +124,4 @@ volumes:
   omop_pgdata:
   omop_pgadmin:
   omop_vocab_cache:
+  omop_dqd_output:

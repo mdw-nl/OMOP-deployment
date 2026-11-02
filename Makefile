@@ -22,7 +22,7 @@ VOCAB_READER_USER ?= vocab_reader
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init up down logs logs-init ps psql load-vocab finalize vocab-reader verify update-ddl reset
+.PHONY: help init up down logs logs-init logs-dqd ps psql load-vocab finalize vocab-reader dqd verify update-ddl reset
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 on Postgres"
@@ -63,6 +63,9 @@ logs: ## Tail Postgres logs
 logs-init: ## Show the omop-init log (vocabulary load, finalize, roles)
 	$(COMPOSE) logs omop-init
 
+logs-dqd: ## Tail the data quality check logs
+	$(COMPOSE) logs -f dqd
+
 ps: ## Show container status
 	$(COMPOSE) ps
 
@@ -81,6 +84,9 @@ vocab-reader: ## Create/update the read-only vocabulary role (VOCAB_READER_* in 
 	@test -n "$(VOCAB_READER_PASSWORD)" || { echo "Set VOCAB_READER_PASSWORD in .env first."; exit 1; }
 	$(COMPOSE) up -d postgres
 	$(DC_EXEC) bash /docker-entrypoint-initdb.d/02_vocab_reader.sh
+
+dqd: ## Run the data quality checks now
+	$(COMPOSE) exec dqd /app/run_dqd.sh
 
 verify: ## Report schema, key/index and row counts
 	@$(DC_EXEC) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -X -q \
