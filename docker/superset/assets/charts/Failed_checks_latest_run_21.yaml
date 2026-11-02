@@ -1,0 +1,48 @@
+slice_name: Failed checks (latest run)
+description: Failed and errored checks of the latest DQD run, with the share of violated
+  rows and the threshold
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 1__table
+  viz_type: table
+  adhoc_filters:
+  - expressionType: SQL
+    sqlExpression: is_latest_run
+    clause: WHERE
+    filterOptionName: latest_run
+  - expressionType: SQL
+    sqlExpression: check_status IN ('Failed', 'Error')
+    clause: WHERE
+    filterOptionName: not_passed
+  query_mode: raw
+  all_columns:
+  - check_status
+  - category
+  - context
+  - check_name
+  - cdm_table_name
+  - cdm_field_name
+  - num_violated_rows
+  - pct_violated_rows
+  - threshold_value
+  - check_description
+  order_by_cols:
+  - '["pct_violated_rows", false]'
+  row_limit: 10000
+  server_page_length: 10
+  include_search: true
+  page_length: 25
+  table_timestamp_format: smart_date
+  column_config:
+    pct_violated_rows:
+      d3NumberFormat: .2f
+      showCellBars: true
+    num_violated_rows:
+      d3NumberFormat: ',d'
+query_context: null
+cache_timeout: null
+uuid: 15b2a998-0b8a-48af-acb2-3c5382c340e5
+version: 1.0.0
+dataset_uuid: cd900ae7-cc24-4595-8131-64a10190e0d5

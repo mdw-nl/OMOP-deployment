@@ -1,7 +1,9 @@
 # OMOP CDM 5.4 on PostgreSQL
 
 A Docker Compose stack that stands up a PostgreSQL 16 database with the **OMOP Common
-Data Model 5.4** schema, plus pgAdmin for browsing it.
+Data Model 5.4** schema, plus pgAdmin for browsing it, scheduled
+[OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/) checks, and
+an Apache Superset dashboard of their results.
 
 > Already running your own Postgres + pgAdmin? Use [existing-postgres/](existing-postgres/)
 > instead — it adds the OMOP schema to a live instance without touching your compose
@@ -16,7 +18,7 @@ clean diff (`make update-ddl`).
 
 ```bash
 make init                 # creates .env from the template
-$EDITOR .env              # set POSTGRES_PASSWORD and PGADMIN_PASSWORD
+$EDITOR .env              # set the passwords (all *_PASSWORD variables)
 # optional: unzip Athena CSVs into ./vocabulary, or set VOCAB_URL in .env
 make up                   # starts the stack, applies the DDL, loads the vocabulary
 make verify               # 39 tables in `cdm`; concept 8507 -> "Male" with a vocabulary
@@ -25,6 +27,8 @@ make verify               # 39 tables in `cdm`; concept 8507 -> "Male" with a vo
 - Postgres: `localhost:5432`, database `omop`, user `omop`
 - pgAdmin: <http://localhost:8080> — the OMOP server is pre-registered; enter
   `POSTGRES_PASSWORD` on first connect
+- Superset: <http://localhost:8088> — sign in with `SUPERSET_ADMIN_USERNAME` /
+  `SUPERSET_ADMIN_PASSWORD` and open the "OMOP Data Quality" dashboard
 
 ## Vocabulary
 
@@ -104,6 +108,20 @@ per run. The JSON output of each run, which the DQD viewer can open, is kept in 
 The vocabulary tables and the cohort tables are not checked: the first are DQD's
 default exclusions, the second hold analysis results rather than source data.
 
+## Data quality dashboard (Superset)
+
+[Apache Superset](https://superset.apache.org/) on <http://localhost:8088> shows the DQD
+results in the "OMOP Data Quality" dashboard: pass rate, results per Kahn category and
+context, failed checks per CDM table, a list of all failed checks of the latest run, and
+the trend over all runs. Its metadata lives in a `superset` database on the same Postgres
+server. Dashboards query the OMOP database as `superset_reader`, a read-only role on
+`cdm` and `dqd_results`, so new charts can also use the CDM tables.
+
+`superset-init` imports the dashboard from [docker/superset/assets](docker/superset/assets)
+on every start, which overwrites changes made to it in the UI. To keep changes, export
+the dashboard (dashboard menu "Download" > "Export YAML"), replace the contents of
+`docker/superset/assets` with the contents of the exported zip, and run `make up`.
+
 ## Targets
 
 | Target | Description |
@@ -125,7 +143,7 @@ default exclusions, the second hold analysis results rather than source data.
 ## How it fits together
 
 ```
-docker-compose.yml     postgres:16, pgadmin4, omop-init and dqd, healthcheck, named volumes
+docker-compose.yml     postgres:16, pgadmin4, omop-init, dqd and superset, named volumes
 .env                   credentials, ports, schema names, Postgres tuning (gitignored)
 ddl/                   vendored OHDSI 5.4 scripts — do not edit
 initdb/                runs once, on an empty volume only
@@ -134,8 +152,9 @@ initdb/                runs once, on an empty volume only
   02_vocab_reader.sh     optional read-only role on the vocabulary tables
 docker/omop-init/      runs on every start, each step skipped when already done
   init.sh                vocabulary from ./vocabulary or VOCAB_URL, finalize, sql/
-  sql/                   cdm_source placeholder row, dqd role and dqd_results schema
+  sql/                   cdm_source placeholder row, dqd/superset roles, dqd_results schema
 docker/dqd/            DQD checks on start and on DQD_SCHEDULE (R, supercronic)
+docker/superset/       Superset image, config and the dashboard assets
 scripts/
   load_vocabulary.sh     truncate + COPY the nine vocabulary tables
   finalize.sh            constraints + indices + ANALYZE

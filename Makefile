@@ -17,6 +17,7 @@ POSTGRES_DB    ?= omop
 POSTGRES_USER  ?= omop
 POSTGRES_PORT  ?= 5432
 PGADMIN_PORT   ?= 8080
+SUPERSET_PORT  ?= 8088
 VOCAB_READER_USER ?= vocab_reader
 
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
@@ -52,7 +53,7 @@ up: ## Build and start the stack, wait until the database is ready
 	@code=$$(docker inspect -f '{{.State.ExitCode}}' omop-init); \
 	  [ "$$code" = 0 ] || { echo "omop-init failed (exit $$code), see the log above."; exit 1; }
 	$(COMPOSE) up -d
-	@echo "Postgres: localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)"
+	@echo "Postgres: localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)   Superset: http://localhost:$(SUPERSET_PORT)"
 
 down: ## Stop the stack, keeping data
 	$(COMPOSE) down

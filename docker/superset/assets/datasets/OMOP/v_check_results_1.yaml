@@ -1,0 +1,395 @@
+table_name: v_check_results
+main_dttm_col: run_started_at
+currency_code_column: null
+description: DQD check results of all successful runs
+default_endpoint: null
+offset: 0
+cache_timeout: null
+catalog: omop
+schema: dqd_results
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+folders: null
+uuid: cd900ae7-cc24-4595-8131-64a10190e0d5
+metrics:
+- metric_name: pct_passed
+  verbose_name: Pass rate
+  metric_type: null
+  expression: 1.0 * SUM(CASE WHEN check_status = 'Passed' THEN 1 ELSE 0 END) / NULLIF(SUM(CASE
+    WHEN check_status <> 'Not applicable' THEN 1 ELSE 0 END), 0)
+  description: Passed checks as a share of the applicable checks, as in the DQD overview
+  d3format: .1%
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: applicable_checks
+  verbose_name: Checks executed
+  metric_type: null
+  expression: SUM(CASE WHEN check_status <> 'Not applicable' THEN 1 ELSE 0 END)
+  description: Checks which are applicable to the data
+  d3format: ',d'
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: not_applicable_checks
+  verbose_name: Not applicable
+  metric_type: null
+  expression: SUM(CASE WHEN check_status = 'Not applicable' THEN 1 ELSE 0 END)
+  description: Checks on empty tables or fields
+  d3format: ',d'
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: error_checks
+  verbose_name: Errors
+  metric_type: null
+  expression: SUM(CASE WHEN check_status = 'Error' THEN 1 ELSE 0 END)
+  description: Checks which could not be executed
+  d3format: ',d'
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: failed_checks
+  verbose_name: Failed
+  metric_type: null
+  expression: SUM(CASE WHEN check_status = 'Failed' THEN 1 ELSE 0 END)
+  description: Checks which exceeded their threshold
+  d3format: ',d'
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: passed_checks
+  verbose_name: Passed
+  metric_type: null
+  expression: SUM(CASE WHEN check_status = 'Passed' THEN 1 ELSE 0 END)
+  description: Checks which passed their threshold
+  d3format: ',d'
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: check_count
+  verbose_name: Checks
+  metric_type: null
+  expression: COUNT(*)
+  description: Number of checks
+  d3format: ',d'
+  currency: null
+  extra: null
+  warning_text: null
+- metric_name: count
+  verbose_name: COUNT(*)
+  metric_type: count
+  expression: COUNT(*)
+  description: null
+  d3format: null
+  currency: null
+  extra: null
+  warning_text: null
+columns:
+- column_name: run_started_at
+  verbose_name: Run started
+  is_dttm: true
+  is_active: true
+  type: TIMESTAMP WITH TIME ZONE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: pct_violated_rows
+  verbose_name: '% violated'
+  is_dttm: false
+  is_active: true
+  type: DOUBLE PRECISION
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: threshold_value
+  verbose_name: Threshold (%)
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: num_denominator_rows
+  verbose_name: Rows checked
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: num_violated_rows
+  verbose_name: Violated rows
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: cdm_table_name
+  verbose_name: CDM table
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: cdm_source_name
+  verbose_name: CDM source
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: cdm_field_name
+  verbose_name: CDM field
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: check_level
+  verbose_name: Check level
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: check_name
+  verbose_name: Check
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: concept_id
+  verbose_name: Concept
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: category
+  verbose_name: Category
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: context
+  verbose_name: Context
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: check_description
+  verbose_name: Description
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: check_status
+  verbose_name: Status
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: subcategory
+  verbose_name: Subcategory
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: is_latest_run
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: BOOLEAN
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: run_id
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: UUID
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: not_applicable_reason
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: unit_concept_id
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: notes_value
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: checkid
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+- column_name: error
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: TEXT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: null
+version: 1.0.0
+database_uuid: 6aed2802-629e-41f6-85bb-92d91b1b7227
