@@ -20,7 +20,7 @@ services:
   omop-init:
     <<: *database
     build: ../docker/omop-init
-    image: omop-init:local
+    image: omop-deployment-init:local
     environment:
       PGHOST: ${OMOP_DB_HOST:-host.docker.internal}
       PGPORT: ${PGPORT:-5432}
@@ -38,7 +38,7 @@ services:
   dqd:
     <<: *database
     build: ../docker/dqd
-    image: omop-dqd:local
+    image: omop-deployment-dqd:local
     restart: unless-stopped
     environment:
       DQD_DB_HOST: ${OMOP_DB_HOST:-host.docker.internal}
@@ -59,7 +59,7 @@ services:
   superset-init:
     <<: *database
     build: ../docker/superset
-    image: omop-superset:local
+    image: omop-deployment-superset:local
     command: ["/app/docker/omop-init.sh"]
     environment: &superset-env
       OMOP_DB_HOST: ${OMOP_DB_HOST:-host.docker.internal}
@@ -78,7 +78,7 @@ services:
 
   superset:
     <<: *database
-    image: omop-superset:local
+    image: omop-deployment-superset:local
     restart: unless-stopped
     environment: *superset-env
     ports:

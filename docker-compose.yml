@@ -55,7 +55,7 @@ services:
     # and prepares the DQD and Superset roles. Runs on every `up`; each step is skipped
     # when already done. Follow it with `make logs-init`.
     build: ./docker/omop-init
-    image: omop-init:local
+    image: omop-deployment-init:local
     container_name: omop-init
     environment:
       PGHOST: postgres
@@ -83,7 +83,7 @@ services:
     # OHDSI Data Quality Dashboard checks, on start and on DQD_SCHEDULE; `make dqd` runs
     # them now. Results go to the dqd_results schema.
     build: ./docker/dqd
-    image: omop-dqd:local
+    image: omop-deployment-dqd:local
     container_name: omop-dqd
     restart: unless-stopped
     environment:
@@ -107,7 +107,7 @@ services:
     # Prepares the Superset metadata database and admin user, and (re)imports the
     # "OMOP Data Quality" dashboard from docker/superset/assets on every start.
     build: ./docker/superset
-    image: omop-superset:local
+    image: omop-deployment-superset:local
     container_name: omop-superset-init
     command: ["/app/docker/omop-init.sh"]
     environment: &superset-env
@@ -127,7 +127,7 @@ services:
         condition: service_completed_successfully
 
   superset:
-    image: omop-superset:local
+    image: omop-deployment-superset:local
     container_name: omop-superset
     restart: unless-stopped
     environment: *superset-env
