@@ -4,8 +4,10 @@ Adds the **OMOP Common Data Model 5.4** schema to a PostgreSQL instance you alre
 run. Use this instead of the stack in the parent folder when you have your own
 `docker-compose.yml` with Postgres and pgAdmin.
 
-**This folder never starts, stops, or recreates a container, and never touches a data
-volume.** Every operation is SQL sent to your running database.
+**This folder never starts, stops, or recreates one of your containers, and never touches
+your data volumes.** Every operation is SQL sent to your running database. The optional
+data quality checks and dashboard run in containers of their own (see
+[below](#data-quality-checks-and-dashboard)).
 
 ## Why this exists as a separate folder
 
@@ -35,6 +37,9 @@ make load-vocab      # COPYs the nine vocabulary tables
 make finalize        # FK constraints + indices + ANALYZE
 make verify          # concept 8507 -> "Male"
 ```
+
+`make download-vocab` downloads the zip at `VOCAB_URL` and extracts its CSVs into
+`VOCAB_DIR` (host mode only), as an alternative to the manual Athena download.
 
 `make check` is worth running before anything else. It confirms connectivity, reports
 the server version, verifies your role has the privileges the later steps need, and
@@ -94,6 +99,35 @@ difference between minutes and hours.
 `make finalize` on an empty vocabulary works but warns: every FK references
 `cdm.concept`, so clinical inserts would fail until the vocabulary is there.
 
+## Data quality checks and dashboard
+
+`make apps-up` starts the [OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/)
+checks and an [Apache Superset](https://superset.apache.org/) dashboard of their results,
+the same as in the [parent stack](../README.md#data-quality-checks-dqd), against
+`TARGET_DB`. Run it after `make install` and `make load-vocab`.
+
+They run in a separate compose project, `omop-apps` ([docker-compose.yml](docker-compose.yml)),
+that never touches your containers or volumes; `make apps-down` stops it again. Its
+`omop-init` container sends this SQL to your database on every start, skipping what
+already exists:
+
+- a placeholder `cdm_source` row, if the table is empty (DQD reads it);
+- role `dqd` (`DQD_PASSWORD`), which reads the CDM, and the `dqd_results` schema it owns;
+- role `superset` (`SUPERSET_DB_PASSWORD`) with a `superset` metadata database, and the
+  read-only role `superset_reader` (`SUPERSET_READER_PASSWORD`) on the CDM and `dqd_results`.
+
+This needs `PGUSER` to have CREATEROLE and CREATEDB; `make check` warns when it does not.
+
+The containers connect to `OMOP_DB_HOST` on `PGPORT`. The default, `host.docker.internal`,
+is the Docker host, which works when your Postgres port is published there (the usual
+`ports: - 5432:5432`) and Postgres accepts password logins from the Docker network. If
+it is only reachable on a Docker network, add that network to the services in an
+override file and set `OMOP_DB_HOST` to the Postgres service name.
+
+- Superset: <http://localhost:8088> (`SUPERSET_PORT`), sign in with
+  `SUPERSET_ADMIN_USERNAME` / `SUPERSET_ADMIN_PASSWORD` and open "OMOP Data Quality"
+- DQD runs on start and on `DQD_SCHEDULE`; `make dqd` runs it now
+
 ## Targets
 
 | Target | Description |
@@ -104,11 +138,16 @@ difference between minutes and hours.
 | `make schema` | Create schemas, apply DDL + primary keys |
 | `make install` | `create-db` then `schema` |
 | `make load-vocab` | Load Athena CSVs from `VOCAB_DIR` |
+| `make download-vocab` | Download the zip at `VOCAB_URL` into `VOCAB_DIR` (host mode) |
 | `make finalize` | Constraints + indices + `ANALYZE` |
 | `make verify` | Schemas, table/key/index counts, row counts, sanity query |
 | `make psql` | Interactive psql on `TARGET_DB` |
 | `make drop-schema` | **Destructive**: drop the three OMOP schemas (prompts first) |
 | `make update-ddl` | Re-download the OHDSI DDL into `ddl/` |
+| `make apps-up` | Build and start DQD + Superset (`omop-apps` project) |
+| `make apps-down` | Stop DQD + Superset, keeping their volumes |
+| `make apps-logs` | Tail the DQD + Superset logs |
+| `make dqd` | Run the data quality checks now |
 
 ## Layout
 
@@ -122,9 +161,11 @@ scripts/
   02_apply_schema.sh   schemas + DDL + primary keys
   03_load_vocabulary.sh
   04_finalize.sh       constraints + indices + ANALYZE
+  download_vocabulary.sh  VOCAB_URL -> VOCAB_DIR
   drop_schema.sh       destructive rebuild path
   verify.sh / verify.sql
 vocabulary/          default CSV location in host mode (gitignored)
+docker-compose.yml   DQD + Superset (omop-apps project), built from ../docker/
 ```
 
 Everything goes through `run_psql()` in [lib/common.sh](lib/common.sh), so switching

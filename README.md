@@ -1,7 +1,9 @@
 # OMOP CDM 5.4 on PostgreSQL
 
 A Docker Compose stack that stands up a PostgreSQL 16 database with the **OMOP Common
-Data Model 5.4** schema, plus pgAdmin for browsing it.
+Data Model 5.4** schema, plus pgAdmin for browsing it, scheduled
+[OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/) checks, and
+an Apache Superset dashboard of their results.
 
 > Already running your own Postgres + pgAdmin? Use [existing-postgres/](existing-postgres/)
 > instead — it adds the OMOP schema to a live instance without touching your compose
@@ -16,17 +18,28 @@ clean diff (`make update-ddl`).
 
 ```bash
 make init                 # creates .env from the template
-$EDITOR .env              # set POSTGRES_PASSWORD and PGADMIN_PASSWORD
-make up                   # starts Postgres + pgAdmin, applies the DDL, waits for healthy
-make verify               # 39 tables in `cdm`, empty vocabulary
+$EDITOR .env              # set the passwords (all *_PASSWORD variables)
+# optional: unzip Athena CSVs into ./vocabulary, or set VOCAB_URL in .env
+make up                   # starts the stack, applies the DDL, loads the vocabulary
+make verify               # 39 tables in `cdm`; concept 8507 -> "Male" with a vocabulary
 ```
 
 - Postgres: `localhost:5432`, database `omop`, user `omop`
 - pgAdmin: <http://localhost:8080> — the OMOP server is pre-registered; enter
   `POSTGRES_PASSWORD` on first connect
+- Superset: <http://localhost:8088> — sign in with `SUPERSET_ADMIN_USERNAME` /
+  `SUPERSET_ADMIN_PASSWORD` and open the "OMOP Data Quality" dashboard
 
-Then load the vocabulary (see [vocabulary/README.md](vocabulary/README.md) for the
-Athena download):
+## Vocabulary
+
+On every `make up` the `omop-init` container checks `cdm.concept`. When it is empty it
+loads the vocabulary from, in this order:
+
+1. the Athena CSVs in `./vocabulary` (see [existing-postgres/vocabulary/README.md](existing-postgres/vocabulary/README.md)
+   for the Athena download);
+2. the zip at `VOCAB_URL` in `.env`, downloaded once into the `omop_vocab_cache` volume.
+
+With neither, the stack starts with an empty vocabulary. Load it later by hand:
 
 ```bash
 # unzip Athena CSVs into ./vocabulary first
@@ -35,14 +48,20 @@ make finalize             # FK constraints + indices + ANALYZE
 make verify               # concept 8507 -> "Male"
 ```
 
+`make logs-init` shows what `omop-init` did on the last start.
+
 ## Order matters
 
-**`up` → `load-vocab` → `finalize`.**
+**DDL → vocabulary → `finalize`.**
 
 Container init applies the DDL and primary keys only. Constraints and indices are held
-back until `make finalize`, which is OHDSI's documented order — building the foreign-key
-graph and every index before `CONCEPT_ANCESTOR` (tens of millions of rows) is loaded
-makes the vocabulary load dramatically slower.
+back until the vocabulary is loaded, which is OHDSI's documented order — building the
+foreign-key graph and every index before `CONCEPT_ANCESTOR` (tens of millions of rows)
+is loaded makes the vocabulary load dramatically slower. `omop-init` follows this order
+and runs `finalize` itself after loading the vocabulary. It skips statements the
+vocabulary violates (some vocabulary packages do not satisfy every foreign key) instead
+of stopping, so all other constraints and indices are still built; `make finalize`
+stops at the first error.
 
 Running `finalize` on an empty vocabulary works but warns: the constraints all reference
 `cdm.concept`, so clinical inserts would fail until the vocabulary is there.
@@ -54,6 +73,7 @@ Running `finalize` on an empty vocabulary works but warns: the constraints all r
 | `cdm` | All 39 CDM 5.4 tables — clinical and vocabulary |
 | `results` | Empty. For OHDSI Atlas/WebAPI cohorts and Achilles output |
 | `temp` | Empty. Scratch space for OHDSI tooling |
+| `dqd_results` | Data quality check results, see [Data quality checks](#data-quality-checks-dqd) |
 
 `results` and `temp` exist up front so Atlas/WebAPI can be added later without
 rebuilding the data volume. Schema names are configurable in `.env`; changing
@@ -71,14 +91,47 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 `make vocab-reader`, which is also how you change the password later. Grants survive
 `make load-vocab`, since that truncates rather than recreates the tables.
 
+## Data quality checks (DQD)
+
+The `dqd` container runs the [OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/)
+checks against the CDM when it starts and on the schedule in `DQD_SCHEDULE` (cron, UTC,
+default `0 2 * * *`: every night at 02:00). `make dqd` runs them right away. It connects
+as the `dqd` role (`DQD_PASSWORD`), which can read the CDM and owns the `dqd_results`
+schema.
+
+Every run is registered in `dqd_results.run_log` and its results are kept in
+`dqd_results.check_results_history`, so earlier runs stay available for trends. The views
+`dqd_results.v_check_results` and `dqd_results.v_run_summary` give one row per check and
+per run. The JSON output of each run, which the DQD viewer can open, is kept in the
+`omop_dqd_output` volume.
+
+The vocabulary tables and the cohort tables are not checked: the first are DQD's
+default exclusions, the second hold analysis results rather than source data.
+
+## Data quality dashboard (Superset)
+
+[Apache Superset](https://superset.apache.org/) on <http://localhost:8088> shows the DQD
+results in the "OMOP Data Quality" dashboard: pass rate, results per Kahn category and
+context, failed checks per CDM table, a list of all failed checks of the latest run, and
+the trend over all runs. Its metadata lives in a `superset` database on the same Postgres
+server. Dashboards query the OMOP database as `superset_reader`, a read-only role on
+`cdm` and `dqd_results`, so new charts can also use the CDM tables.
+
+`superset-init` imports the dashboard from [docker/superset/assets](docker/superset/assets)
+on every start, which overwrites changes made to it in the UI. To keep changes, export
+the dashboard (dashboard menu "Download" > "Export YAML"), replace the contents of
+`docker/superset/assets` with the contents of the exported zip, and run `make up`.
+
 ## Targets
 
 | Target | Description |
 | --- | --- |
 | `make init` | Create `.env` from `.env.example` |
-| `make up` | Start the stack, wait for healthy |
+| `make up` | Build and start the stack, wait until `omop-init` is done |
 | `make down` | Stop, keeping data |
 | `make ps` / `make logs` | Status / tail Postgres logs |
+| `make logs-init` | Show what `omop-init` did on the last start |
+| `make dqd` / `make logs-dqd` | Run the data quality checks now / tail their logs |
 | `make psql` | Interactive psql session |
 | `make load-vocab` | Load Athena CSVs from `./vocabulary` |
 | `make finalize` | Apply constraints + indices, refresh statistics |
@@ -90,13 +143,18 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 ## How it fits together
 
 ```
-docker-compose.yml     postgres:16 + pgadmin4, healthcheck, named volumes
+docker-compose.yml     postgres:16, pgadmin4, omop-init, dqd and superset, named volumes
 .env                   credentials, ports, schema names, Postgres tuning (gitignored)
 ddl/                   vendored OHDSI 5.4 scripts — do not edit
 initdb/                runs once, on an empty volume only
   00_schemas.sh          creates cdm / results / temp
   01_apply_ddl.sh        substitutes @cdmDatabaseSchema, applies DDL + primary keys
   02_vocab_reader.sh     optional read-only role on the vocabulary tables
+docker/omop-init/      runs on every start, each step skipped when already done
+  init.sh                vocabulary from ./vocabulary or VOCAB_URL, finalize, sql/
+  sql/                   cdm_source placeholder row, dqd/superset roles, dqd_results schema
+docker/dqd/            DQD checks on start and on DQD_SCHEDULE (R, supercronic)
+docker/superset/       Superset image, config and the dashboard assets
 scripts/
   load_vocabulary.sh     truncate + COPY the nine vocabulary tables
   finalize.sh            constraints + indices + ANALYZE

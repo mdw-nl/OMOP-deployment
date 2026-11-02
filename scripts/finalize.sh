@@ -9,6 +9,10 @@ set -euo pipefail
 
 CDM_SCHEMA="${CDM_SCHEMA:-cdm}"
 DDL_DIR=/ddl
+# 1 stops at the first failing statement. The init container sets 0: not every vocabulary
+# package satisfies all foreign keys, and the remaining constraints and indices should
+# still be built rather than abandoned halfway.
+FINALIZE_ON_ERROR_STOP="${FINALIZE_ON_ERROR_STOP:-1}"
 
 # The FK constraints all point at cdm.concept. Applying them against an empty
 # vocabulary "succeeds" but leaves a schema no ETL can insert into, so warn.
@@ -25,7 +29,7 @@ for step in constraints indices; do
   file="${DDL_DIR}/OMOPCDM_postgresql_5.4_${step}.sql"
   echo "==> applying ${step}"
   sed "s/@cdmDatabaseSchema/${CDM_SCHEMA}/g" "$file" \
-    | psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --quiet
+    | psql -v ON_ERROR_STOP="$FINALIZE_ON_ERROR_STOP" --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --quiet
 done
 
 echo "==> analyzing schema '${CDM_SCHEMA}'"

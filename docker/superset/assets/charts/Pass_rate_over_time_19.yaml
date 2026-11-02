@@ -1,0 +1,25 @@
+slice_name: Pass rate over time
+description: Pass rate of every DQD run
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_line
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_line
+  adhoc_filters: []
+  x_axis: run_started_at
+  time_grain_sqla: PT1M
+  metrics:
+  - pct_passed
+  groupby: []
+  y_axis_format: .1%
+  markerEnabled: true
+  markerSize: 6
+  show_legend: false
+  rich_tooltip: true
+  row_limit: 10000
+query_context: null
+cache_timeout: null
+uuid: ad9594b6-2688-42ae-a515-97a37906bd12
+version: 1.0.0
+dataset_uuid: cd900ae7-cc24-4595-8131-64a10190e0d5

@@ -1,0 +1,28 @@
+slice_name: Check status
+description: Status of all checks in the latest DQD run
+certified_by: null
+certification_details: null
+viz_type: pie
+params:
+  datasource: 1__table
+  viz_type: pie
+  adhoc_filters:
+  - expressionType: SQL
+    sqlExpression: is_latest_run
+    clause: WHERE
+    filterOptionName: latest_run
+  groupby:
+  - check_status
+  metric: check_count
+  donut: true
+  show_labels: true
+  label_type: value
+  show_legend: true
+  legendOrientation: bottom
+  row_limit: 100
+  color_scheme: supersetColors
+query_context: null
+cache_timeout: null
+uuid: fd075d37-4c97-4003-93a8-fdf656cdec89
+version: 1.0.0
+dataset_uuid: cd900ae7-cc24-4595-8131-64a10190e0d5

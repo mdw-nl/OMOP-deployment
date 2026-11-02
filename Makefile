@@ -17,12 +17,13 @@ POSTGRES_DB    ?= omop
 POSTGRES_USER  ?= omop
 POSTGRES_PORT  ?= 5432
 PGADMIN_PORT   ?= 8080
+SUPERSET_PORT  ?= 8088
 VOCAB_READER_USER ?= vocab_reader
 
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init up down logs ps psql load-vocab finalize vocab-reader verify update-ddl reset
+.PHONY: help init up down logs logs-init logs-dqd ps psql load-vocab finalize vocab-reader dqd verify update-ddl reset
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 on Postgres"
@@ -31,7 +32,8 @@ help: ## Show available targets
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo
 	@echo "First run:  make init  ->  edit .env  ->  make up"
-	@echo "Then:       make load-vocab  ->  make finalize"
+	@echo "Vocabulary: Athena CSVs in ./vocabulary (or VOCAB_URL) load on up;"
+	@echo "            added later: make load-vocab  ->  make finalize"
 
 init: ## Create .env from .env.example
 	@if [ -f .env ]; then \
@@ -41,28 +43,31 @@ init: ## Create .env from .env.example
 	  echo "Created .env — set POSTGRES_PASSWORD and PGADMIN_PASSWORD before 'make up'."; \
 	fi
 
-up: ## Start Postgres + pgAdmin and wait for the schema to be ready
+up: ## Build and start the stack, wait until the database is ready
 	@test -f .env || { echo "No .env — run 'make init' first."; exit 1; }
+	@# omop-init first and followed, as the services after it only start once it is done.
+	@# --since: a restarted omop-init keeps the log of its earlier runs.
+	@since=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	  $(COMPOSE) up -d --build postgres pgadmin omop-init \
+	  || { echo "Startup failed. Recent Postgres logs:"; $(COMPOSE) logs --tail=40 postgres; exit 1; }; \
+	  echo "Preparing the database (the first vocabulary load takes a while)..."; \
+	  $(COMPOSE) logs -f --no-log-prefix --since "$$since" omop-init
+	@code=$$(docker inspect -f '{{.State.ExitCode}}' omop-init); \
+	  [ "$$code" = 0 ] || { echo "omop-init failed (exit $$code), see the log above."; exit 1; }
 	$(COMPOSE) up -d
-	@echo "Waiting for Postgres to become healthy (the DDL applies during init)..."
-	@for i in $$(seq 1 60); do \
-	  status=$$(docker inspect -f '{{.State.Health.Status}}' omop-postgres 2>/dev/null || echo starting); \
-	  if [ "$$status" = "healthy" ]; then \
-	    echo "Postgres healthy on localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)"; \
-	    exit 0; \
-	  fi; \
-	  if [ "$$status" = "unhealthy" ]; then break; fi; \
-	  sleep 2; \
-	done; \
-	echo "Postgres did not come up healthy. Recent logs:"; \
-	$(COMPOSE) logs --tail=40 postgres; \
-	exit 1
+	@echo "Postgres: localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)   Superset: http://localhost:$(SUPERSET_PORT)"
 
 down: ## Stop the stack, keeping data
 	$(COMPOSE) down
 
 logs: ## Tail Postgres logs
 	$(COMPOSE) logs -f postgres
+
+logs-init: ## Show the omop-init log (vocabulary load, finalize, roles)
+	$(COMPOSE) logs omop-init
+
+logs-dqd: ## Tail the data quality check logs
+	$(COMPOSE) logs -f dqd
 
 ps: ## Show container status
 	$(COMPOSE) ps
@@ -82,6 +87,9 @@ vocab-reader: ## Create/update the read-only vocabulary role (VOCAB_READER_* in 
 	@test -n "$(VOCAB_READER_PASSWORD)" || { echo "Set VOCAB_READER_PASSWORD in .env first."; exit 1; }
 	$(COMPOSE) up -d postgres
 	$(DC_EXEC) bash /docker-entrypoint-initdb.d/02_vocab_reader.sh
+
+dqd: ## Run the data quality checks now
+	$(COMPOSE) exec dqd /app/run_dqd.sh
 
 verify: ## Report schema, key/index and row counts
 	@$(DC_EXEC) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -X -q \

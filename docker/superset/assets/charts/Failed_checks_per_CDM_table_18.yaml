@@ -1,0 +1,38 @@
+slice_name: Failed checks per CDM table
+description: Number of failed and errored checks per CDM table in the latest DQD run
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_bar
+  adhoc_filters:
+  - expressionType: SQL
+    sqlExpression: is_latest_run
+    clause: WHERE
+    filterOptionName: latest_run
+  - expressionType: SQL
+    sqlExpression: check_status IN ('Failed', 'Error')
+    clause: WHERE
+    filterOptionName: not_passed
+  x_axis: cdm_table_name
+  metrics:
+  - failed_checks
+  - error_checks
+  groupby: []
+  orientation: vertical
+  stack: Stack
+  show_legend: true
+  x_axis_sort: failed_checks
+  x_axis_sort_asc: false
+  row_limit: 1000
+  y_axis_format: ',d'
+  truncateXAxis: true
+  xAxisLabelRotation: 45
+  x_axis_title: ''
+  y_axis_title: Checks
+query_context: null
+cache_timeout: null
+uuid: 3e2e8c5a-b271-4454-8b69-5b8949744d9d
+version: 1.0.0
+dataset_uuid: cd900ae7-cc24-4595-8131-64a10190e0d5
