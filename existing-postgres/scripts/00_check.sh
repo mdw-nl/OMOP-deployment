@@ -26,6 +26,13 @@ if [[ "$CREATE_DB" == "true" ]]; then
     || die "CREATE_DB=true but '${PGUSER}' lacks CREATEDB. Grant it, use a superuser, or set CREATE_DB=false."
 fi
 
+# `make apps-up` creates the dqd/superset roles and the superset metadata database.
+can_apps=$(PGDATABASE=postgres psql_value -c "SELECT (rolcreaterole AND rolcreatedb) OR rolsuper FROM pg_roles WHERE rolname = current_user;")
+if [[ "$can_apps" != "t" ]]; then
+  warn "'${PGUSER}' lacks CREATEROLE or CREATEDB, which 'make apps-up' needs once to create"
+  warn "the DQD and Superset roles and the superset database. The CDM steps are not affected."
+fi
+
 exists=$(PGDATABASE=postgres psql_value -c "SELECT count(*) FROM pg_database WHERE datname = '${TARGET_DB}';")
 if [[ "$exists" == "0" ]]; then
   say "target database '${TARGET_DB}': does not exist yet"
