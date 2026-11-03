@@ -102,8 +102,10 @@ difference between minutes and hours.
 ## Data quality checks
 
 `make quality-up` starts the [OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/)
-checks against `TARGET_DB`, the same as in the [parent stack](../README.md#data-quality-checks-dqd).
-Run it after `make install` and `make load-vocab`, with `DQD_PASSWORD` set in `.env`.
+checks and an [Apache Superset](https://superset.apache.org/) dashboard of their results
+against `TARGET_DB`, the same as in the [parent stack](../README.md#data-quality-checks-dqd).
+Run it after `make install` and `make load-vocab`, with the `DQD_*` and `SUPERSET_*`
+passwords set in `.env`.
 
 They run from the shared [../apps/compose.yml](../apps/compose.yml) as a separate compose
 project, `omop-apps`, that never touches your containers or volumes; `make quality-down`
@@ -111,9 +113,11 @@ stops it again. Its `quality-init` container sends this SQL to your database on 
 start, skipping what already exists:
 
 - a placeholder `cdm_source` row, if the table is empty (DQD reads it);
-- the `dqd` role (`DQD_PASSWORD`), which reads the CDM, and the `dqd_results` schema it owns.
+- the `dqd` role (`DQD_PASSWORD`), which reads the CDM, and the `dqd_results` schema it owns;
+- the `superset` role (`SUPERSET_DB_PASSWORD`) with a `superset` metadata database, and the
+  read-only role `superset_reader` (`SUPERSET_READER_PASSWORD`) on the CDM and `dqd_results`.
 
-It connects as `PGUSER`, which needs CREATEROLE and must be able to act as the roles it
+It connects as `PGUSER`, which needs CREATEROLE and CREATEDB and must be able to act as the roles it
 creates. From Postgres 16 a CREATEROLE role cannot do that by default, so use a superuser
 or grant `PGUSER` membership in the new roles; `make check` warns when `PGUSER` is not a
 superuser.
@@ -125,7 +129,16 @@ is published there (the usual `ports: - 5432:5432`, not bound to `127.0.0.1` onl
 reachable on a Docker network, add that network to the services in an override file and
 set `OMOP_DB_HOST` to the Postgres service name.
 
-DQD runs on start and on `DQD_SCHEDULE`; `make dqd` runs it now.
+- Superset: <http://localhost:8088> (`SUPERSET_PORT`), sign in with
+  `SUPERSET_ADMIN_USERNAME` / `SUPERSET_ADMIN_PASSWORD` and open "OMOP Data Quality"
+- DQD runs on start and on `DQD_SCHEDULE`; `make dqd` runs it now
+
+> [!WARNING]
+> **Every Superset user can read patient-level data** in `TARGET_DB`: `superset_reader`
+> can read all CDM tables and SQL Lab is enabled. Read the
+> [warning in the parent README](../README.md#data-quality-dashboard-superset) before
+> giving anyone a Superset account, including how to limit Superset to the data quality
+> results.
 
 ## Targets
 
@@ -143,8 +156,8 @@ DQD runs on start and on `DQD_SCHEDULE`; `make dqd` runs it now.
 | `make psql` | Interactive psql on `TARGET_DB` |
 | `make drop-schema` | **Destructive**: drop the three OMOP schemas (prompts first) |
 | `make update-ddl` | Re-download the OHDSI DDL into `ddl/` |
-| `make quality-up` | Build and start the data quality apps (`omop-apps` project) |
-| `make quality-down` | Stop the data quality apps, keeping their volumes |
+| `make quality-up` | Build and start DQD + Superset (`omop-apps` project) |
+| `make quality-down` | Stop DQD + Superset, keeping their volumes |
 | `make quality-logs` | Tail the data quality app logs |
 | `make dqd` | Run the data quality checks now |
 

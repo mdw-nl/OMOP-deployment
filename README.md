@@ -113,6 +113,41 @@ per run. The JSON output of each run, which the DQD viewer can open, is kept in 
 The vocabulary tables and the cohort tables are not checked: the first are DQD's
 default exclusions, the second hold analysis results rather than source data.
 
+## Data quality dashboard (Superset)
+
+`make quality-up` also starts [Apache Superset](https://superset.apache.org/) on
+<http://localhost:8088> (`SUPERSET_PORT`). Sign in with `SUPERSET_ADMIN_USERNAME` /
+`SUPERSET_ADMIN_PASSWORD` and open the "OMOP Data Quality" dashboard: pass rate, results
+per Kahn category and context, failed checks per CDM table, a list of all failed checks
+of the latest run, and the trend over all runs.
+
+`quality-init` also creates the `superset` role (`SUPERSET_DB_PASSWORD`) with a
+`superset` metadata database on the same Postgres server, and the read-only role
+`superset_reader` (`SUPERSET_READER_PASSWORD`) the dashboards query with. That role can
+read `cdm` and `dqd_results`, so new charts can also use the CDM tables.
+
+> [!WARNING]
+> **Every Superset user can read patient-level data.** `superset_reader` can read all
+> CDM tables (`person`, `condition_occurrence`, `drug_exposure`, `note`, ...), and SQL
+> Lab is enabled for the OMOP database, so anyone who can sign in to Superset can query
+> them directly. The data quality dashboard itself only uses `dqd_results`.
+>
+> - Change `SUPERSET_ADMIN_PASSWORD` from `change_me`, and only give Superset accounts
+>   to people who may see the clinical data.
+> - Do not expose port 8088 beyond the machine or a trusted network.
+> - To limit Superset to the data quality results, remove `:"cdm_schema",` from the two
+>   `GRANT` lines in [docker/quality-init/sql/30_superset.sql](docker/quality-init/sql/30_superset.sql),
+>   set `expose_in_sqllab: false` in
+>   [docker/superset/assets/databases/OMOP.yaml](docker/superset/assets/databases/OMOP.yaml),
+>   and on an existing database run
+>   `REVOKE ALL ON ALL TABLES IN SCHEMA cdm FROM superset_reader; REVOKE ALL ON SCHEMA cdm FROM superset_reader;`.
+
+`superset-init` imports the dashboard from [docker/superset/assets](docker/superset/assets)
+on every start, which overwrites changes made to it in the UI. To keep changes, export
+the dashboard (dashboard menu "Download" > "Export YAML"), replace the contents of
+`docker/superset/assets` with the contents of the exported zip, and run
+`make quality-up`.
+
 ## Targets
 
 | Target | Description |
@@ -122,7 +157,7 @@ default exclusions, the second hold analysis results rather than source data.
 | `make down` | Stop, keeping data |
 | `make ps` / `make logs` | Status / tail Postgres logs |
 | `make logs-init` | Show what `omop-init` did on the last start |
-| `make quality-up` / `make quality-down` | Start / stop the data quality apps |
+| `make quality-up` / `make quality-down` | Start / stop the data quality checks and Superset |
 | `make dqd` / `make logs-dqd` | Run the data quality checks now / tail their logs |
 | `make psql` | Interactive psql session |
 | `make load-vocab` | Load Athena CSVs from `./vocabulary` |
@@ -146,8 +181,10 @@ initdb/                runs once, on an empty volume only
   02_vocab_reader.sh     optional read-only role on the vocabulary tables
 docker/omop-init/      runs on every `make up`: vocabulary from ./vocabulary or VOCAB_URL,
                        then finalize; each step skipped when already done
-docker/quality-init/   cdm_source placeholder row, dqd role and dqd_results schema
+docker/quality-init/   cdm_source placeholder row, dqd role and dqd_results schema,
+                       superset roles and metadata database
 docker/dqd/            DQD checks on start and on DQD_SCHEDULE (R, supercronic)
+docker/superset/       Superset image, config and the dashboard assets
 scripts/
   load_vocabulary.sh     truncate + COPY the nine vocabulary tables
   finalize.sh            constraints + indices + ANALYZE

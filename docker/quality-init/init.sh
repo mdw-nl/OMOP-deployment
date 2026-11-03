@@ -1,6 +1,7 @@
 #!/bin/bash
 # Prepares the OMOP database for the data quality apps by applying /sql/*.sql: a
-# cdm_source row if missing, the dqd role and its dqd_results schema. Runs on every
+# cdm_source row if missing, the dqd role and its dqd_results schema, and the Superset
+# roles and metadata database. Runs on every
 # `make quality-up`; every statement is idempotent. Connects as an admin role through
 # the standard PG* variables.
 set -euo pipefail
@@ -16,7 +17,7 @@ value() { psql -v ON_ERROR_STOP=1 -tAX -c "$1"; }
 
 # apps/compose.yml requires no variables, as Compose resolves it even when the quality
 # profile is off; the passwords are checked here instead.
-for var in PGPASSWORD DQD_PASSWORD; do
+for var in PGPASSWORD DQD_PASSWORD SUPERSET_DB_PASSWORD SUPERSET_READER_PASSWORD; do
   [[ -n "${!var:-}" ]] || die "${var} is empty, set it in .env"
 done
 

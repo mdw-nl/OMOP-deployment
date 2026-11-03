@@ -1,0 +1,29 @@
+slice_name: DQD runs
+description: All successful DQD runs
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 2__table
+  viz_type: table
+  adhoc_filters: []
+  query_mode: raw
+  all_columns:
+  - run_started_at
+  - cdm_source_name
+  - total_checks
+  - passed
+  - failed
+  - errors
+  - not_applicable
+  - pct_passed
+  order_by_cols:
+  - '["run_started_at", false]'
+  row_limit: 1000
+  page_length: 10
+  table_timestamp_format: '%Y-%m-%d %H:%M:%S'
+query_context: null
+cache_timeout: null
+uuid: 9670eac5-292b-4c59-b4e8-5c86c7043de0
+version: 1.0.0
+dataset_uuid: 8dc1c38d-3c38-4d4e-ad3e-0378ab069014

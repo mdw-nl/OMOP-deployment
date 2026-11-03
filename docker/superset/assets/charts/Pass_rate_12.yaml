@@ -1,0 +1,22 @@
+slice_name: Pass rate
+description: Passed checks as a share of the applicable checks in the latest DQD run
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 1__table
+  viz_type: big_number_total
+  adhoc_filters:
+  - expressionType: SQL
+    sqlExpression: is_latest_run
+    clause: WHERE
+    filterOptionName: latest_run
+  metric: pct_passed
+  subheader: of applicable checks passed (latest run)
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+query_context: null
+cache_timeout: null
+uuid: 1efbcdea-0bda-4eeb-a740-7d4fd39fdc12
+version: 1.0.0
+dataset_uuid: cd900ae7-cc24-4595-8131-64a10190e0d5

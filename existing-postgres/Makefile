@@ -18,7 +18,7 @@ help: ## Show available targets
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo
 	@echo "Order:  init -> (edit .env) -> check -> install -> load-vocab -> finalize -> verify"
-	@echo "Then:   quality-up  (optional data quality checks)"
+	@echo "Then:   quality-up  (optional data quality checks + Superset dashboard)"
 
 init: ## Create .env from .env.example
 	@if [ -f .env ]; then \
@@ -56,10 +56,10 @@ verify: ## Report schemas, table/key/index counts and row counts
 psql: ## Interactive psql session on the target database
 	@$(S)/psql.sh
 
-quality-up: ## Build and start the data quality checks against TARGET_DB (omop-apps project)
+quality-up: ## Build and start DQD + Superset against TARGET_DB (omop-apps project)
 	@$(S)/quality.sh up -d --build \
-	  || { echo "Starting the quality apps failed. quality-init log:"; $(S)/quality.sh logs --no-log-prefix quality-init; exit 1; }
-	@echo "DQD runs now and on DQD_SCHEDULE; 'make quality-logs' to follow it."
+	  || { echo "Starting the quality apps failed. Init logs:"; $(S)/quality.sh logs quality-init superset-init; exit 1; }
+	@echo "Superset: http://localhost:$$(sed -n 's/^SUPERSET_PORT=//p' .env | grep . || echo 8088)   DQD runs now and on DQD_SCHEDULE"
 
 quality-down: ## Stop the data quality apps, keeping their volumes; your database is untouched
 	@$(S)/quality.sh down

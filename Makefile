@@ -17,6 +17,7 @@ POSTGRES_DB    ?= omop
 POSTGRES_USER  ?= omop
 POSTGRES_PORT  ?= 5432
 PGADMIN_PORT   ?= 8080
+SUPERSET_PORT  ?= 8088
 VOCAB_READER_USER ?= vocab_reader
 
 # apps/compose.yml reaches the database through OMOP_DB_*; here it is the postgres service.
@@ -25,7 +26,7 @@ export OMOP_DB_PORT := 5432
 export OMOP_DB_NAME := $(POSTGRES_DB)
 export OMOP_DB_ADMIN_USER := $(POSTGRES_USER)
 export OMOP_DB_ADMIN_PASSWORD := $(POSTGRES_PASSWORD)
-QUALITY_SERVICES := quality-init dqd
+QUALITY_SERVICES := quality-init dqd superset-init superset
 
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
@@ -41,7 +42,7 @@ help: ## Show available targets
 	@echo "First run:  make init  ->  edit .env  ->  make up"
 	@echo "Vocabulary: Athena CSVs in ./vocabulary (or VOCAB_URL) load on up;"
 	@echo "            added later: make load-vocab  ->  make finalize"
-	@echo "Optional:   make quality-up  (data quality checks)"
+	@echo "Optional:   make quality-up  (data quality checks + Superset dashboard)"
 
 init: ## Create .env from .env.example
 	@if [ -f .env ]; then \
@@ -68,10 +69,10 @@ down: ## Stop the stack (and the quality apps), keeping data
 	$(COMPOSE) --profile quality down
 
 # Named services only, so the core services (and omop-init) are not started again.
-quality-up: up ## Also build and start the data quality checks
+quality-up: up ## Also build and start the data quality checks and Superset
 	@$(COMPOSE) up -d --build $(QUALITY_SERVICES) \
-	  || { echo "Starting the quality apps failed. quality-init log:"; $(COMPOSE) logs --no-log-prefix quality-init; exit 1; }
-	@echo "DQD runs now and on DQD_SCHEDULE; 'make logs-dqd' to follow it."
+	  || { echo "Starting the quality apps failed. Init logs:"; $(COMPOSE) logs quality-init superset-init; exit 1; }
+	@echo "Superset: http://localhost:$(SUPERSET_PORT)   DQD runs now and on DQD_SCHEDULE ('make logs-dqd')"
 
 quality-down: ## Stop the data quality apps, keeping their volumes
 	$(COMPOSE) --profile quality down $(QUALITY_SERVICES)

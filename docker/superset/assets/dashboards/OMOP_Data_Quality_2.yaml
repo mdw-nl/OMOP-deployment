@@ -1,0 +1,521 @@
+dashboard_title: OMOP Data Quality
+description: null
+css: null
+slug: omop-data-quality
+certified_by: null
+certification_details: null
+published: true
+uuid: 6b802479-d81b-48c5-b4a6-0a6d83fdc22f
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+    - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+    - ROW-1
+    - ROW-2
+    - ROW-3
+    - ROW-4
+    - ROW-5
+    - ROW-6
+    - ROW-7
+    parents:
+    - ROOT_ID
+  HEADER_ID:
+    id: HEADER_ID
+    type: HEADER
+    meta:
+      text: OMOP Data Quality
+  ROW-1:
+    type: ROW
+    id: ROW-1
+    children:
+    - MARKDOWN-1-1
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  MARKDOWN-1-1:
+    type: MARKDOWN
+    id: MARKDOWN-1-1
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-1
+    meta:
+      width: 12
+      height: 16
+      code: '### OHDSI Data Quality Dashboard
+
+        Results of the [DQD](https://ohdsi.github.io/DataQualityDashboard/) checks
+        on the OMOP CDM, following the Kahn framework. Checks *fail* when the share
+        of violated rows exceeds their threshold. Unless stated otherwise, charts
+        show the latest run; use the filters to narrow down by table, category or
+        status.'
+  ROW-2:
+    type: ROW
+    id: ROW-2
+    children:
+    - CHART-2-1
+    - CHART-2-2
+    - CHART-2-3
+    - CHART-2-4
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-2-1:
+    type: CHART
+    id: CHART-2-1
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2
+    meta:
+      width: 3
+      height: 24
+      chartId: 12
+      sliceName: Pass rate
+      uuid: 1efbcdea-0bda-4eeb-a740-7d4fd39fdc12
+  CHART-2-2:
+    type: CHART
+    id: CHART-2-2
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2
+    meta:
+      width: 3
+      height: 24
+      chartId: 13
+      sliceName: Failed checks
+      uuid: 2eb398f7-ede4-4c5f-aa5c-deb60a76c88f
+  CHART-2-3:
+    type: CHART
+    id: CHART-2-3
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2
+    meta:
+      width: 3
+      height: 24
+      chartId: 14
+      sliceName: Check errors
+      uuid: 1bffafde-c134-4cd4-a27b-ac878499d3aa
+  CHART-2-4:
+    type: CHART
+    id: CHART-2-4
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2
+    meta:
+      width: 3
+      height: 24
+      chartId: 15
+      sliceName: Checks executed
+      uuid: 58e9ffd9-f261-4bd4-a8be-564b046535d2
+  ROW-3:
+    type: ROW
+    id: ROW-3
+    children:
+    - CHART-3-1
+    - CHART-3-2
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-3-1:
+    type: CHART
+    id: CHART-3-1
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-3
+    meta:
+      width: 7
+      height: 50
+      chartId: 16
+      sliceName: Pass rate by category and context
+      uuid: 9613c3b5-7746-4a13-b9a1-d1f1c1a750c3
+  CHART-3-2:
+    type: CHART
+    id: CHART-3-2
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-3
+    meta:
+      width: 5
+      height: 50
+      chartId: 17
+      sliceName: Check status
+      uuid: fd075d37-4c97-4003-93a8-fdf656cdec89
+  ROW-4:
+    type: ROW
+    id: ROW-4
+    children:
+    - CHART-4-1
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-4-1:
+    type: CHART
+    id: CHART-4-1
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-4
+    meta:
+      width: 12
+      height: 60
+      chartId: 18
+      sliceName: Failed checks per CDM table
+      uuid: 3e2e8c5a-b271-4454-8b69-5b8949744d9d
+  ROW-5:
+    type: ROW
+    id: ROW-5
+    children:
+    - CHART-5-1
+    - CHART-5-2
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-5-1:
+    type: CHART
+    id: CHART-5-1
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-5
+    meta:
+      width: 6
+      height: 50
+      chartId: 19
+      sliceName: Pass rate over time
+      uuid: ad9594b6-2688-42ae-a515-97a37906bd12
+  CHART-5-2:
+    type: CHART
+    id: CHART-5-2
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-5
+    meta:
+      width: 6
+      height: 50
+      chartId: 20
+      sliceName: Failed checks over time
+      uuid: 5b9942a8-2446-4cfb-8937-beb593eb832d
+  ROW-6:
+    type: ROW
+    id: ROW-6
+    children:
+    - CHART-6-1
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-6-1:
+    type: CHART
+    id: CHART-6-1
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-6
+    meta:
+      width: 12
+      height: 90
+      chartId: 21
+      sliceName: Failed checks (latest run)
+      uuid: 15b2a998-0b8a-48af-acb2-3c5382c340e5
+  ROW-7:
+    type: ROW
+    id: ROW-7
+    children:
+    - CHART-7-1
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-7-1:
+    type: CHART
+    id: CHART-7-1
+    children: []
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-7
+    meta:
+      width: 12
+      height: 50
+      chartId: 22
+      sliceName: DQD runs
+      uuid: 9670eac5-292b-4c59-b4e8-5c86c7043de0
+metadata:
+  native_filter_configuration:
+  - id: NATIVE_FILTER-cdm-table
+    name: CDM table
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: cdm_table_name
+      datasetUuid: cd900ae7-cc24-4595-8131-64a10190e0d5
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 22
+    chartsInScope:
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    tabsInScope: []
+    description: ''
+  - id: NATIVE_FILTER-category
+    name: Category
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: category
+      datasetUuid: cd900ae7-cc24-4595-8131-64a10190e0d5
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 22
+    chartsInScope:
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    tabsInScope: []
+    description: ''
+  - id: NATIVE_FILTER-context
+    name: Context
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: context
+      datasetUuid: cd900ae7-cc24-4595-8131-64a10190e0d5
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 22
+    chartsInScope:
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    tabsInScope: []
+    description: ''
+  - id: NATIVE_FILTER-check-level
+    name: Check level
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: check_level
+      datasetUuid: cd900ae7-cc24-4595-8131-64a10190e0d5
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 22
+    chartsInScope:
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    tabsInScope: []
+    description: ''
+  - id: NATIVE_FILTER-check-status
+    name: Check status
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: check_status
+      datasetUuid: cd900ae7-cc24-4595-8131-64a10190e0d5
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 22
+    chartsInScope:
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    tabsInScope: []
+    description: ''
+  - id: NATIVE_FILTER-check-name
+    name: Check
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: check_name
+      datasetUuid: cd900ae7-cc24-4595-8131-64a10190e0d5
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 22
+    chartsInScope:
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    tabsInScope: []
+    description: ''
+  color_scheme: supersetColors
+  label_colors:
+    Passed: '#5AC189'
+    Failed: '#E04355'
+    Error: '#FCC700'
+    Not applicable: '#B2B2B2'
+    Failed checks: '#E04355'
+    Errors: '#FCC700'
+  refresh_frequency: 0
+  cross_filters_enabled: true
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  shared_label_colors: []
+  map_label_colors: {}
+  color_scheme_domain: []
+theme_uuid: null
+version: 1.0.0

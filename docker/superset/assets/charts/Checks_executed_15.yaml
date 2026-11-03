@@ -1,0 +1,22 @@
+slice_name: Checks executed
+description: Checks in the latest DQD run which are applicable to the data
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 1__table
+  viz_type: big_number_total
+  adhoc_filters:
+  - expressionType: SQL
+    sqlExpression: is_latest_run
+    clause: WHERE
+    filterOptionName: latest_run
+  metric: applicable_checks
+  subheader: applicable checks (latest run)
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+query_context: null
+cache_timeout: null
+uuid: 58e9ffd9-f261-4bd4-a8be-564b046535d2
+version: 1.0.0
+dataset_uuid: cd900ae7-cc24-4595-8131-64a10190e0d5
