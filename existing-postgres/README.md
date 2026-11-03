@@ -36,6 +36,9 @@ make finalize        # FK constraints + indices + ANALYZE
 make verify          # concept 8507 -> "Male"
 ```
 
+`make download-vocab` downloads the zip at `VOCAB_URL` and extracts its CSVs into
+`VOCAB_DIR` (host mode only), as an alternative to the manual Athena download.
+
 `make check` is worth running before anything else. It confirms connectivity, reports
 the server version, verifies your role has the privileges the later steps need, and
 tells you whether OMOP is already installed — all without writing anything.
@@ -104,6 +107,7 @@ difference between minutes and hours.
 | `make schema` | Create schemas, apply DDL + primary keys |
 | `make install` | `create-db` then `schema` |
 | `make load-vocab` | Load Athena CSVs from `VOCAB_DIR` |
+| `make download-vocab` | Download the zip at `VOCAB_URL` into `VOCAB_DIR` (host mode) |
 | `make finalize` | Constraints + indices + `ANALYZE` |
 | `make verify` | Schemas, table/key/index counts, row counts, sanity query |
 | `make psql` | Interactive psql on `TARGET_DB` |
@@ -122,6 +126,7 @@ scripts/
   02_apply_schema.sh   schemas + DDL + primary keys
   03_load_vocabulary.sh
   04_finalize.sh       constraints + indices + ANALYZE
+  download_vocabulary.sh  VOCAB_URL -> VOCAB_DIR
   drop_schema.sh       destructive rebuild path
   verify.sh / verify.sql
 vocabulary/          default CSV location in host mode (gitignored)

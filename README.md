@@ -17,16 +17,25 @@ clean diff (`make update-ddl`).
 ```bash
 make init                 # creates .env from the template
 $EDITOR .env              # set POSTGRES_PASSWORD and PGADMIN_PASSWORD
-make up                   # starts Postgres + pgAdmin, applies the DDL, waits for healthy
-make verify               # 39 tables in `cdm`, empty vocabulary
+# optional: unzip Athena CSVs into ./vocabulary, or set VOCAB_URL in .env
+make up                   # starts Postgres + pgAdmin, applies the DDL, loads the vocabulary
+make verify               # 39 tables in `cdm`; concept 8507 -> "Male" with a vocabulary
 ```
 
 - Postgres: `localhost:5432`, database `omop`, user `omop`
 - pgAdmin: <http://localhost:8080> — the OMOP server is pre-registered; enter
   `POSTGRES_PASSWORD` on first connect
 
-Then load the vocabulary (see [vocabulary/README.md](vocabulary/README.md) for the
-Athena download):
+## Vocabulary
+
+On every `make up` the `omop-init` container checks `cdm.concept`. When it is empty it
+loads the vocabulary from, in this order:
+
+1. the Athena CSVs in `./vocabulary` (see [vocabulary/README.md](vocabulary/README.md)
+   for the Athena download);
+2. the zip at `VOCAB_URL` in `.env`, downloaded once into the `omop_vocab_cache` volume.
+
+With neither, the stack starts with an empty vocabulary. Load it later by hand:
 
 ```bash
 # unzip Athena CSVs into ./vocabulary first
@@ -35,14 +44,20 @@ make finalize             # FK constraints + indices + ANALYZE
 make verify               # concept 8507 -> "Male"
 ```
 
+`make logs-init` shows what `omop-init` did on the last start.
+
 ## Order matters
 
-**`up` → `load-vocab` → `finalize`.**
+**DDL → vocabulary → `finalize`.**
 
 Container init applies the DDL and primary keys only. Constraints and indices are held
-back until `make finalize`, which is OHDSI's documented order — building the foreign-key
-graph and every index before `CONCEPT_ANCESTOR` (tens of millions of rows) is loaded
-makes the vocabulary load dramatically slower.
+back until the vocabulary is loaded, which is OHDSI's documented order — building the
+foreign-key graph and every index before `CONCEPT_ANCESTOR` (tens of millions of rows)
+is loaded makes the vocabulary load dramatically slower. `omop-init` follows this order
+and runs `finalize` itself after loading the vocabulary. It skips statements the
+vocabulary violates (some vocabulary packages do not satisfy every foreign key) instead
+of stopping, so all other constraints and indices are still built; `make finalize`
+stops at the first error.
 
 Running `finalize` on an empty vocabulary works but warns: the constraints all reference
 `cdm.concept`, so clinical inserts would fail until the vocabulary is there.
@@ -76,9 +91,10 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 | Target | Description |
 | --- | --- |
 | `make init` | Create `.env` from `.env.example` |
-| `make up` | Start the stack, wait for healthy |
+| `make up` | Start the stack, wait until `omop-init` is done |
 | `make down` | Stop, keeping data |
 | `make ps` / `make logs` | Status / tail Postgres logs |
+| `make logs-init` | Show what `omop-init` did on the last start |
 | `make psql` | Interactive psql session |
 | `make load-vocab` | Load Athena CSVs from `./vocabulary` |
 | `make finalize` | Apply constraints + indices, refresh statistics |
@@ -90,13 +106,15 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 ## How it fits together
 
 ```
-docker-compose.yml     postgres:16 + pgadmin4, healthcheck, named volumes
+docker-compose.yml     postgres:16, pgadmin4, omop-init, healthcheck, named volumes
 .env                   credentials, ports, schema names, Postgres tuning (gitignored)
 ddl/                   vendored OHDSI 5.4 scripts — do not edit
 initdb/                runs once, on an empty volume only
   00_schemas.sh          creates cdm / results / temp
   01_apply_ddl.sh        substitutes @cdmDatabaseSchema, applies DDL + primary keys
   02_vocab_reader.sh     optional read-only role on the vocabulary tables
+docker/omop-init/      runs on every `make up`: vocabulary from ./vocabulary or VOCAB_URL,
+                       then finalize; each step skipped when already done
 scripts/
   load_vocabulary.sh     truncate + COPY the nine vocabulary tables
   finalize.sh            constraints + indices + ANALYZE

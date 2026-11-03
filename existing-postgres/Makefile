@@ -8,7 +8,7 @@ S := ./scripts
 DDL_BASE  := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init check create-db schema load-vocab finalize verify psql drop-schema install update-ddl
+.PHONY: help init check create-db schema load-vocab download-vocab finalize verify psql drop-schema install update-ddl
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 -> existing PostgreSQL instance"
@@ -41,6 +41,9 @@ install: ## create-db + schema, in order
 
 load-vocab: ## Load Athena vocabulary CSVs from VOCAB_DIR
 	@$(S)/03_load_vocabulary.sh
+
+download-vocab: ## Download the vocabulary zip at VOCAB_URL into VOCAB_DIR (host mode)
+	@$(S)/download_vocabulary.sh
 
 finalize: ## Apply FK constraints + indices, refresh statistics (run after load-vocab)
 	@$(S)/04_finalize.sh
