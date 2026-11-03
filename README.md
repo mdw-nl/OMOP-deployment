@@ -44,6 +44,10 @@ make finalize             # FK constraints + indices + ANALYZE
 make verify               # concept 8507 -> "Male"
 ```
 
+To keep doing this by hand, as before `omop-init` existed, set `INIT_LOAD_VOCAB=false`
+and `INIT_FINALIZE=false` in `.env`: `make up` then leaves the vocabulary, constraints and
+indices alone.
+
 `make logs-init` shows what `omop-init` did on the last start.
 
 ## Order matters

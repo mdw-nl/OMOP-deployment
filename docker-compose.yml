@@ -70,6 +70,9 @@ services:
       CDM_SCHEMA: ${CDM_SCHEMA:-cdm}
       # Optional; only used when ./vocabulary holds no CSVs and the vocabulary is empty.
       VOCAB_URL: ${VOCAB_URL:-}
+      # Set to false to load and finalize by hand with `make load-vocab` / `make finalize`.
+      INIT_LOAD_VOCAB: ${INIT_LOAD_VOCAB:-true}
+      INIT_FINALIZE: ${INIT_FINALIZE:-true}
     volumes:
       - ./scripts:/scripts:ro
       - ./ddl:/ddl:ro
