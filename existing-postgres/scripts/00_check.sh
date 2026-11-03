@@ -26,12 +26,11 @@ if [[ "$CREATE_DB" == "true" ]]; then
     || die "CREATE_DB=true but '${PGUSER}' lacks CREATEDB. Grant it, use a superuser, or set CREATE_DB=false."
 fi
 
-# `make quality-up` creates its roles and then acts as them (schema owner, SET ROLE).
-# From Postgres 16 a role with CREATEROLE alone may not, so only a superuser is certain.
-is_super=$(PGDATABASE=postgres psql_value -c "SELECT rolsuper FROM pg_roles WHERE rolname = current_user;")
-if [[ "$is_super" != "t" ]]; then
-  warn "'${PGUSER}' is not a superuser. 'make quality-up' creates roles and acts as them, which"
-  warn "needs CREATEROLE and, from Postgres 16, membership in those roles. The CDM steps are not affected."
+# `make quality-up` creates its roles and the superset database, then grants itself
+# membership in those roles to act as them (schema owner, SET ROLE).
+can_quality=$(PGDATABASE=postgres psql_value -c "SELECT rolsuper OR (rolcreaterole AND rolcreatedb) FROM pg_roles WHERE rolname = current_user;")
+if [[ "$can_quality" != "t" ]]; then
+  warn "'${PGUSER}' lacks CREATEROLE or CREATEDB, which 'make quality-up' needs. The CDM steps are not affected."
 fi
 
 exists=$(PGDATABASE=postgres psql_value -c "SELECT count(*) FROM pg_database WHERE datname = '${TARGET_DB}';")

@@ -3,6 +3,9 @@
 -- than interpolated, so it never appears in the SQL text or on a command line.
 SELECT 'CREATE ROLE dqd LOGIN'
  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dqd') \gexec
+-- The schema owner and SET ROLE below need membership in dqd. A non-superuser does not
+-- get it by creating the role (from Postgres 16 only ADMIN, without SET), so grant it.
+GRANT dqd TO CURRENT_USER;
 \getenv dqd_password DQD_PASSWORD
 ALTER ROLE dqd PASSWORD :'dqd_password';
 

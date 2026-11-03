@@ -118,10 +118,11 @@ start, skipping what already exists:
 - the `superset` role (`SUPERSET_DB_PASSWORD`) with a `superset` metadata database, and the
   read-only role `superset_reader` (`SUPERSET_READER_PASSWORD`) on the CDM and `dqd_results`.
 
-It connects as `PGUSER`, which needs CREATEROLE and CREATEDB and must be able to act as the roles it
-creates. From Postgres 16 a CREATEROLE role cannot do that by default, so use a superuser
-or grant `PGUSER` membership in the new roles; `make check` warns when `PGUSER` is not a
-superuser.
+It connects as `PGUSER`, which needs to be a superuser or have CREATEROLE and CREATEDB;
+`make check` warns when it has neither. To act as the roles it creates, it makes `PGUSER`
+a member of `dqd` and `superset`. If those roles already exist and were created by another
+role, a `PGUSER` that is not a superuser cannot do that from Postgres 16; then run
+`GRANT dqd, superset TO <PGUSER>` once as a superuser.
 
 The containers connect to `OMOP_DB_HOST` on `PGPORT` (`OMOP_DB_PORT` overrides it). The
 default, `host.docker.internal`, is the Docker host, which works when your Postgres port

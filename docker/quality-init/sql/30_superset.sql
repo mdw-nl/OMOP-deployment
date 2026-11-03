@@ -4,6 +4,8 @@
 -- patient-level data, see the README warning.
 SELECT 'CREATE ROLE superset LOGIN'
  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'superset') \gexec
+-- CREATE DATABASE ... OWNER needs membership in superset, see 20_dqd.sql
+GRANT superset TO CURRENT_USER;
 \getenv superset_db_password SUPERSET_DB_PASSWORD
 ALTER ROLE superset PASSWORD :'superset_db_password';
 SELECT 'CREATE DATABASE superset OWNER superset'
