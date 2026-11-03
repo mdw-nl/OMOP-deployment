@@ -19,10 +19,18 @@ POSTGRES_PORT  ?= 5432
 PGADMIN_PORT   ?= 8080
 VOCAB_READER_USER ?= vocab_reader
 
+# apps/compose.yml reaches the database through OMOP_DB_*; here it is the postgres service.
+export OMOP_DB_HOST := postgres
+export OMOP_DB_PORT := 5432
+export OMOP_DB_NAME := $(POSTGRES_DB)
+export OMOP_DB_ADMIN_USER := $(POSTGRES_USER)
+export OMOP_DB_ADMIN_PASSWORD := $(POSTGRES_PASSWORD)
+QUALITY_SERVICES := quality-init dqd
+
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init up down logs logs-init ps psql load-vocab finalize vocab-reader verify update-ddl reset
+.PHONY: help init up down logs logs-init ps psql load-vocab finalize vocab-reader verify update-ddl reset quality-up quality-down logs-dqd dqd
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 on Postgres"
@@ -33,6 +41,7 @@ help: ## Show available targets
 	@echo "First run:  make init  ->  edit .env  ->  make up"
 	@echo "Vocabulary: Athena CSVs in ./vocabulary (or VOCAB_URL) load on up;"
 	@echo "            added later: make load-vocab  ->  make finalize"
+	@echo "Optional:   make quality-up  (data quality checks)"
 
 init: ## Create .env from .env.example
 	@if [ -f .env ]; then \
@@ -55,8 +64,23 @@ up: ## Start Postgres + pgAdmin, wait until the database is ready
 	  [ "$$code" = 0 ] || { echo "omop-init failed (exit $$code), see the log above."; exit 1; }
 	@echo "Postgres: localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)"
 
-down: ## Stop the stack, keeping data
-	$(COMPOSE) down
+down: ## Stop the stack (and the quality apps), keeping data
+	$(COMPOSE) --profile quality down
+
+# Named services only, so the core services (and omop-init) are not started again.
+quality-up: up ## Also build and start the data quality checks
+	@$(COMPOSE) up -d --build $(QUALITY_SERVICES) \
+	  || { echo "Starting the quality apps failed. quality-init log:"; $(COMPOSE) logs --no-log-prefix quality-init; exit 1; }
+	@echo "DQD runs now and on DQD_SCHEDULE; 'make logs-dqd' to follow it."
+
+quality-down: ## Stop the data quality apps, keeping their volumes
+	$(COMPOSE) --profile quality down $(QUALITY_SERVICES)
+
+logs-dqd: ## Tail the data quality check logs
+	$(COMPOSE) logs -f dqd
+
+dqd: ## Run the data quality checks now
+	$(COMPOSE) exec dqd /app/run_dqd.sh
 
 logs: ## Tail Postgres logs
 	$(COMPOSE) logs -f postgres
@@ -101,8 +125,8 @@ update-ddl: ## Re-download the OHDSI CDM 5.4 DDL scripts into ddl/
 	done
 	@echo "Vendored DDL refreshed. 'make reset' to rebuild the database from it."
 
-reset: ## DESTROY the data volume and rebuild the schema from scratch
-	@echo "This deletes the omop_pgdata volume — all data in $(POSTGRES_DB) is lost."
+reset: ## DESTROY the data volumes and rebuild the schema from scratch
+	@echo "This deletes all volumes of the stack — all data in $(POSTGRES_DB) is lost."
 	@read -p "Type 'yes' to continue: " ans; [ "$$ans" = "yes" ] || { echo "Aborted."; exit 1; }
-	$(COMPOSE) down -v
+	$(COMPOSE) --profile quality down -v
 	@$(MAKE) --no-print-directory up

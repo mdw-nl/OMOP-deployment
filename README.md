@@ -69,6 +69,7 @@ Running `finalize` on an empty vocabulary works but warns: the constraints all r
 | `cdm` | All 39 CDM 5.4 tables — clinical and vocabulary |
 | `results` | Empty. For OHDSI Atlas/WebAPI cohorts and Achilles output |
 | `temp` | Empty. Scratch space for OHDSI tooling |
+| `dqd_results` | Only with `make quality-up`: data quality check results, see [below](#data-quality-checks-dqd) |
 
 `results` and `temp` exist up front so Atlas/WebAPI can be added later without
 rebuilding the data volume. Schema names are configurable in `.env`; changing
@@ -86,6 +87,32 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 `make vocab-reader`, which is also how you change the password later. Grants survive
 `make load-vocab`, since that truncates rather than recreates the tables.
 
+## Data quality checks (DQD)
+
+Optional, and off by default: `make quality-up` starts the stack and then the
+[OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/) checks.
+They are defined in [apps/compose.yml](apps/compose.yml), shared with
+[existing-postgres/](existing-postgres/), and are in the Compose profile `quality`, so
+`make up` alone never starts or builds them. Set `DQD_PASSWORD` in `.env` first.
+
+`quality-init` runs first and creates, skipping what already exists:
+
+- a placeholder `cdm_source` row, if the table is empty (DQD reads it);
+- the `dqd` role (`DQD_PASSWORD`), which reads the CDM, and the `dqd_results` schema it owns.
+
+The `dqd` container then runs the checks when it starts and on the schedule in
+`DQD_SCHEDULE` (cron, UTC, default `0 2 * * *`: every night at 02:00). `make dqd` runs
+them right away.
+
+Every run is registered in `dqd_results.run_log` and its results are kept in
+`dqd_results.check_results_history`, so earlier runs stay available for trends. The views
+`dqd_results.v_check_results` and `dqd_results.v_run_summary` give one row per check and
+per run. The JSON output of each run, which the DQD viewer can open, is kept in the
+`omop_dqd_output` volume.
+
+The vocabulary tables and the cohort tables are not checked: the first are DQD's
+default exclusions, the second hold analysis results rather than source data.
+
 ## Targets
 
 | Target | Description |
@@ -95,6 +122,8 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 | `make down` | Stop, keeping data |
 | `make ps` / `make logs` | Status / tail Postgres logs |
 | `make logs-init` | Show what `omop-init` did on the last start |
+| `make quality-up` / `make quality-down` | Start / stop the data quality apps |
+| `make dqd` / `make logs-dqd` | Run the data quality checks now / tail their logs |
 | `make psql` | Interactive psql session |
 | `make load-vocab` | Load Athena CSVs from `./vocabulary` |
 | `make finalize` | Apply constraints + indices, refresh statistics |
@@ -106,7 +135,9 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 ## How it fits together
 
 ```
-docker-compose.yml     postgres:16, pgadmin4, omop-init, healthcheck, named volumes
+docker-compose.yml     postgres:16, pgadmin4, omop-init, healthcheck, named volumes;
+                       includes apps/compose.yml
+apps/compose.yml       data quality apps (profile `quality`), shared with existing-postgres/
 .env                   credentials, ports, schema names, Postgres tuning (gitignored)
 ddl/                   vendored OHDSI 5.4 scripts — do not edit
 initdb/                runs once, on an empty volume only
@@ -115,6 +146,8 @@ initdb/                runs once, on an empty volume only
   02_vocab_reader.sh     optional read-only role on the vocabulary tables
 docker/omop-init/      runs on every `make up`: vocabulary from ./vocabulary or VOCAB_URL,
                        then finalize; each step skipped when already done
+docker/quality-init/   cdm_source placeholder row, dqd role and dqd_results schema
+docker/dqd/            DQD checks on start and on DQD_SCHEDULE (R, supercronic)
 scripts/
   load_vocabulary.sh     truncate + COPY the nine vocabulary tables
   finalize.sh            constraints + indices + ANALYZE

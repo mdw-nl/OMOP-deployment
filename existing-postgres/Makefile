@@ -2,13 +2,14 @@
 SHELL := /bin/bash
 
 # Thin wrapper: every target delegates to scripts/, which read .env through
-# lib/common.sh. Nothing here starts, stops or recreates a container.
+# lib/common.sh. Nothing here starts, stops or recreates one of your containers;
+# the quality-* targets only manage the separate omop-apps compose project.
 S := ./scripts
 
 DDL_BASE  := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init check create-db schema load-vocab download-vocab finalize verify psql drop-schema install update-ddl
+.PHONY: help init check create-db schema load-vocab download-vocab finalize verify psql drop-schema install update-ddl quality-up quality-down quality-logs dqd
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 -> existing PostgreSQL instance"
@@ -17,6 +18,7 @@ help: ## Show available targets
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo
 	@echo "Order:  init -> (edit .env) -> check -> install -> load-vocab -> finalize -> verify"
+	@echo "Then:   quality-up  (optional data quality checks)"
 
 init: ## Create .env from .env.example
 	@if [ -f .env ]; then \
@@ -53,6 +55,20 @@ verify: ## Report schemas, table/key/index counts and row counts
 
 psql: ## Interactive psql session on the target database
 	@$(S)/psql.sh
+
+quality-up: ## Build and start the data quality checks against TARGET_DB (omop-apps project)
+	@$(S)/quality.sh up -d --build \
+	  || { echo "Starting the quality apps failed. quality-init log:"; $(S)/quality.sh logs --no-log-prefix quality-init; exit 1; }
+	@echo "DQD runs now and on DQD_SCHEDULE; 'make quality-logs' to follow it."
+
+quality-down: ## Stop the data quality apps, keeping their volumes; your database is untouched
+	@$(S)/quality.sh down
+
+quality-logs: ## Tail the data quality app logs
+	@$(S)/quality.sh logs -f
+
+dqd: ## Run the data quality checks now
+	@$(S)/quality.sh exec dqd /app/run_dqd.sh
 
 drop-schema: ## DESTRUCTIVE: drop the OMOP schemas so you can rebuild (prompts first)
 	@$(S)/drop_schema.sh

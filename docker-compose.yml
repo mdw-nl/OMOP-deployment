@@ -1,5 +1,9 @@
 name: omop
 
+# Data quality apps, all in the `quality` profile: `make quality-up` starts them.
+include:
+  - apps/compose.yml
+
 services:
   postgres:
     # Debian-based, not -alpine: the initdb and helper scripts are bash, and glibc/ICU

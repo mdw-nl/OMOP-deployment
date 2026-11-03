@@ -4,8 +4,10 @@ Adds the **OMOP Common Data Model 5.4** schema to a PostgreSQL instance you alre
 run. Use this instead of the stack in the parent folder when you have your own
 `docker-compose.yml` with Postgres and pgAdmin.
 
-**This folder never starts, stops, or recreates a container, and never touches a data
-volume.** Every operation is SQL sent to your running database.
+**This folder never starts, stops, or recreates one of your containers, and never touches
+your data volumes.** Every operation is SQL sent to your running database. The optional
+data quality checks run in containers of their own (see
+[below](#data-quality-checks)).
 
 ## Why this exists as a separate folder
 
@@ -97,6 +99,34 @@ difference between minutes and hours.
 `make finalize` on an empty vocabulary works but warns: every FK references
 `cdm.concept`, so clinical inserts would fail until the vocabulary is there.
 
+## Data quality checks
+
+`make quality-up` starts the [OHDSI Data Quality Dashboard](https://ohdsi.github.io/DataQualityDashboard/)
+checks against `TARGET_DB`, the same as in the [parent stack](../README.md#data-quality-checks-dqd).
+Run it after `make install` and `make load-vocab`, with `DQD_PASSWORD` set in `.env`.
+
+They run from the shared [../apps/compose.yml](../apps/compose.yml) as a separate compose
+project, `omop-apps`, that never touches your containers or volumes; `make quality-down`
+stops it again. Its `quality-init` container sends this SQL to your database on every
+start, skipping what already exists:
+
+- a placeholder `cdm_source` row, if the table is empty (DQD reads it);
+- the `dqd` role (`DQD_PASSWORD`), which reads the CDM, and the `dqd_results` schema it owns.
+
+It connects as `PGUSER`, which needs CREATEROLE and must be able to act as the roles it
+creates. From Postgres 16 a CREATEROLE role cannot do that by default, so use a superuser
+or grant `PGUSER` membership in the new roles; `make check` warns when `PGUSER` is not a
+superuser.
+
+The containers connect to `OMOP_DB_HOST` on `PGPORT` (`OMOP_DB_PORT` overrides it). The
+default, `host.docker.internal`, is the Docker host, which works when your Postgres port
+is published there (the usual `ports: - 5432:5432`, not bound to `127.0.0.1` only) and
+`pg_hba.conf` accepts password logins from the Docker network. If Postgres is only
+reachable on a Docker network, add that network to the services in an override file and
+set `OMOP_DB_HOST` to the Postgres service name.
+
+DQD runs on start and on `DQD_SCHEDULE`; `make dqd` runs it now.
+
 ## Targets
 
 | Target | Description |
@@ -113,6 +143,10 @@ difference between minutes and hours.
 | `make psql` | Interactive psql on `TARGET_DB` |
 | `make drop-schema` | **Destructive**: drop the three OMOP schemas (prompts first) |
 | `make update-ddl` | Re-download the OHDSI DDL into `ddl/` |
+| `make quality-up` | Build and start the data quality apps (`omop-apps` project) |
+| `make quality-down` | Stop the data quality apps, keeping their volumes |
+| `make quality-logs` | Tail the data quality app logs |
+| `make dqd` | Run the data quality checks now |
 
 ## Layout
 
@@ -127,6 +161,7 @@ scripts/
   03_load_vocabulary.sh
   04_finalize.sh       constraints + indices + ANALYZE
   download_vocabulary.sh  VOCAB_URL -> VOCAB_DIR
+  quality.sh           docker compose on ../apps/compose.yml as project omop-apps
   drop_schema.sh       destructive rebuild path
   verify.sh / verify.sql
 vocabulary/          default CSV location in host mode (gitignored)
