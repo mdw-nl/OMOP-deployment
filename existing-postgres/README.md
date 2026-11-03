@@ -112,7 +112,8 @@ project, `omop-apps`, that never touches your containers or volumes; `make quali
 stops it again. Its `quality-init` container sends this SQL to your database on every
 start, skipping what already exists:
 
-- a placeholder `cdm_source` row, if the table is empty (DQD reads it);
+- a placeholder `cdm_source` row, if the table is empty (DQD reads it); it is removed
+  again on the next `make quality-up` once your ETL has written its own row;
 - the `dqd` role (`DQD_PASSWORD`), which reads the CDM, and the `dqd_results` schema it owns;
 - the `superset` role (`SUPERSET_DB_PASSWORD`) with a `superset` metadata database, and the
   read-only role `superset_reader` (`SUPERSET_READER_PASSWORD`) on the CDM and `dqd_results`.

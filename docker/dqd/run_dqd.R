@@ -26,14 +26,25 @@ connectionDetails <- do.call(createConnectionDetails, list(
 ))
 
 connection <- connect(connectionDetails)
-on.exit(disconnect(connection))
 quote <- function(value) DBI::dbQuoteString(connection, as.character(value))
 # First value of a single value query
 queryValue <- function(sql) querySql(connection, sql)[[1]][1]
 
-cdmSourceName <- queryValue(sprintf("SELECT max(cdm_source_name) FROM %s.cdm_source", cdmSchema))
+# The ETL's own row rather than the quality-init placeholder, see 10_cdm_source.sql
+cdmSourceName <- queryValue(sprintf(
+  "SELECT cdm_source_name FROM %s.cdm_source ORDER BY cdm_holder = 'Placeholder (quality-init)' NULLS FIRST LIMIT 1",
+  cdmSchema
+))
 if (is.na(cdmSourceName)) cdmSourceName <- "OMOP CDM"
 runId <- queryValue("SELECT gen_random_uuid()::text")
+
+# run_dqd.sh holds a lock for the whole run, so a run still marked as running was
+# interrupted (container stopped or killed) and will never finish. Assumes one dqd
+# container per database.
+executeSql(connection, sprintf(
+  "UPDATE %s.run_log SET status = 'failed', finished_at = now(), error = 'Interrupted, the run did not finish' WHERE status = 'running'",
+  resultsSchema
+), progressBar = FALSE, reportOverallTime = FALSE)
 
 executeSql(connection, sprintf(
   "INSERT INTO %s.run_log (run_id, cdm_source_name, dqd_version, started_at, status) VALUES (%s, %s, %s, now(), 'running')",
@@ -47,7 +58,8 @@ status <- tryCatch({
   )
 
   # DQD (<= 2.9.1) fails when disconnecting a NULL connection at exit when running with
-  # multiple threads, after all results are written; the row count check below still applies
+  # multiple threads, after all results are written. That error is logged and ignored;
+  # the copy below fails if the results table is missing, and the row count check still applies
   tryCatch(DataQualityDashboard::executeDqChecks(
     connectionDetails = connectionDetails,
     cdmDatabaseSchema = cdmSchema,
@@ -68,6 +80,7 @@ status <- tryCatch({
     )
   ), error = function(e) {
     if (!grepl("applied to an object of class \"NULL\"", conditionMessage(e), fixed = TRUE)) stop(e)
+    message(sprintf("Ignoring a known DQD error at the end of the run: %s", conditionMessage(e)))
   })
 
   executeSql(connection, sprintf(
@@ -95,4 +108,6 @@ status <- tryCatch({
   1
 })
 
+# on.exit() has no effect outside a function, so disconnect here
+disconnect(connection)
 quit(status = status)

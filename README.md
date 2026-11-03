@@ -57,7 +57,8 @@ is loaded makes the vocabulary load dramatically slower. `omop-init` follows thi
 and runs `finalize` itself after loading the vocabulary. It skips statements the
 vocabulary violates (some vocabulary packages do not satisfy every foreign key) instead
 of stopping, so all other constraints and indices are still built; `make finalize`
-stops at the first error.
+stops at the first error. `omop-init` then compares the foreign keys with the DDL and
+lists any that are missing in its log (`make logs-init`).
 
 Running `finalize` on an empty vocabulary works but warns: the constraints all reference
 `cdm.concept`, so clinical inserts would fail until the vocabulary is there.
@@ -97,7 +98,8 @@ They are defined in [apps/compose.yml](apps/compose.yml), shared with
 
 `quality-init` runs first and creates, skipping what already exists:
 
-- a placeholder `cdm_source` row, if the table is empty (DQD reads it);
+- a placeholder `cdm_source` row, if the table is empty (DQD reads it); it is removed
+  again on the next `make quality-up` once your ETL has written its own row;
 - the `dqd` role (`DQD_PASSWORD`), which reads the CDM, and the `dqd_results` schema it owns.
 
 The `dqd` container then runs the checks when it starts and on the schedule in
@@ -108,7 +110,8 @@ Every run is registered in `dqd_results.run_log` and its results are kept in
 `dqd_results.check_results_history`, so earlier runs stay available for trends. The views
 `dqd_results.v_check_results` and `dqd_results.v_run_summary` give one row per check and
 per run. The JSON output of each run, which the DQD viewer can open, is kept in the
-`omop_dqd_output` volume.
+`omop_dqd_output` volume. A run that was interrupted, for example because the container
+stopped, is marked `failed` when the next run starts.
 
 The vocabulary tables and the cohort tables are not checked: the first are DQD's
 default exclusions, the second hold analysis results rather than source data.

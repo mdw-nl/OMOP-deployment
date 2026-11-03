@@ -29,6 +29,25 @@ fks() {
   value "SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace
          WHERE n.nspname = '${CDM_SCHEMA}' AND c.contype = 'f'"
 }
+# Compares the foreign keys in the vendored DDL with the database. finalize skips those
+# the vocabulary violates, which would otherwise only show as errors in its output.
+report_fks() {
+  local expected missing
+  expected=$(grep -oE 'ADD CONSTRAINT [A-Za-z0-9_]+ FOREIGN KEY' /ddl/OMOPCDM_postgresql_5.4_constraints.sql \
+    | awk '{print tolower($3)}' | sort -u | tr '\n' ' ')
+  missing=$(value "SELECT string_agg(c, ', ' ORDER BY c)
+                     FROM unnest(string_to_array(trim('${expected}'), ' ')) c
+                    WHERE NOT EXISTS (SELECT FROM pg_constraint k JOIN pg_namespace n ON n.oid = k.connamespace
+                                       WHERE n.nspname = '${CDM_SCHEMA}' AND k.conname = c)")
+  local total
+  total=$(wc -w <<< "$expected" | tr -d ' ')
+  if [[ -z "$missing" ]]; then
+    log "all ${total} foreign keys in place"
+  else
+    log "WARNING: $(tr ',' '\n' <<< "$missing" | wc -l | tr -d ' ') of ${total} foreign keys are missing,"
+    log "WARNING: usually because the vocabulary violates them: ${missing}"
+  fi
+}
 
 # --- 1. database -------------------------------------------------------------
 log "waiting for ${PGHOST}:${PGPORT:-5432}/${PGDATABASE}"
@@ -86,9 +105,11 @@ elif [[ "$(concepts)" -eq 0 ]]; then
   log "vocabulary empty — not applying constraints and indices yet"
 elif [[ "$(fks)" -ne 0 || -n "$(value "SELECT to_regclass('${CDM_SCHEMA}.idx_person_id')")" ]]; then
   log "constraints and indices already applied"
+  report_fks
 else
   log "applying constraints and indices; statements the vocabulary violates are skipped"
   FINALIZE_ON_ERROR_STOP=0 bash /scripts/finalize.sh
+  report_fks
 fi
 
 log "OMOP database ready"
