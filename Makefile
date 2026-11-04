@@ -17,12 +17,21 @@ POSTGRES_DB    ?= omop
 POSTGRES_USER  ?= omop
 POSTGRES_PORT  ?= 5432
 PGADMIN_PORT   ?= 8080
+SUPERSET_PORT  ?= 8088
 VOCAB_READER_USER ?= vocab_reader
+
+# apps/compose.yml reaches the database through OMOP_DB_*; here it is the postgres service.
+export OMOP_DB_HOST := postgres
+export OMOP_DB_PORT := 5432
+export OMOP_DB_NAME := $(POSTGRES_DB)
+export OMOP_DB_ADMIN_USER := $(POSTGRES_USER)
+export OMOP_DB_ADMIN_PASSWORD := $(POSTGRES_PASSWORD)
+QUALITY_SERVICES := quality-init dqd superset-init superset
 
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init up down logs ps psql load-vocab finalize vocab-reader verify update-ddl reset
+.PHONY: help init up down logs logs-init ps psql load-vocab finalize vocab-reader verify update-ddl reset quality-up quality-down logs-dqd dqd
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 on Postgres"
@@ -31,7 +40,9 @@ help: ## Show available targets
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo
 	@echo "First run:  make init  ->  edit .env  ->  make up"
-	@echo "Then:       make load-vocab  ->  make finalize"
+	@echo "Vocabulary: Athena CSVs in ./vocabulary (or VOCAB_URL) load on up;"
+	@echo "            added later: make load-vocab  ->  make finalize"
+	@echo "Optional:   make quality-up  (data quality checks + Superset dashboard)"
 
 init: ## Create .env from .env.example
 	@if [ -f .env ]; then \
@@ -41,28 +52,42 @@ init: ## Create .env from .env.example
 	  echo "Created .env — set POSTGRES_PASSWORD and PGADMIN_PASSWORD before 'make up'."; \
 	fi
 
-up: ## Start Postgres + pgAdmin and wait for the schema to be ready
+up: ## Start Postgres + pgAdmin, wait until the database is ready
 	@test -f .env || { echo "No .env — run 'make init' first."; exit 1; }
-	$(COMPOSE) up -d
-	@echo "Waiting for Postgres to become healthy (the DDL applies during init)..."
-	@for i in $$(seq 1 60); do \
-	  status=$$(docker inspect -f '{{.State.Health.Status}}' omop-postgres 2>/dev/null || echo starting); \
-	  if [ "$$status" = "healthy" ]; then \
-	    echo "Postgres healthy on localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)"; \
-	    exit 0; \
-	  fi; \
-	  if [ "$$status" = "unhealthy" ]; then break; fi; \
-	  sleep 2; \
-	done; \
-	echo "Postgres did not come up healthy. Recent logs:"; \
-	$(COMPOSE) logs --tail=40 postgres; \
-	exit 1
+	@# omop-init is followed until it exits, so its vocabulary load shows here.
+	@# --since: a restarted omop-init keeps the log of its earlier runs.
+	@since=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	  $(COMPOSE) up -d --build postgres pgadmin omop-init \
+	  || { echo "Startup failed. Recent Postgres logs:"; $(COMPOSE) logs --tail=40 postgres; exit 1; }; \
+	  echo "Preparing the database (the first vocabulary load takes a while)..."; \
+	  $(COMPOSE) logs -f --no-log-prefix --since "$$since" omop-init
+	@code=$$(docker inspect -f '{{.State.ExitCode}}' omop-init); \
+	  [ "$$code" = 0 ] || { echo "omop-init failed (exit $$code), see the log above."; exit 1; }
+	@echo "Postgres: localhost:$(POSTGRES_PORT)   pgAdmin: http://localhost:$(PGADMIN_PORT)"
 
-down: ## Stop the stack, keeping data
-	$(COMPOSE) down
+down: ## Stop the stack (and the quality apps), keeping data
+	$(COMPOSE) --profile quality down
+
+# Named services only, so the core services (and omop-init) are not started again.
+quality-up: up ## Also build and start the data quality checks and Superset
+	@$(COMPOSE) up -d --build $(QUALITY_SERVICES) \
+	  || { echo "Starting the quality apps failed. Init logs:"; $(COMPOSE) logs quality-init superset-init; exit 1; }
+	@echo "Superset: http://localhost:$(SUPERSET_PORT)   DQD runs now and on DQD_SCHEDULE ('make logs-dqd')"
+
+quality-down: ## Stop the data quality apps, keeping their volumes
+	$(COMPOSE) --profile quality down $(QUALITY_SERVICES)
+
+logs-dqd: ## Tail the data quality check logs
+	$(COMPOSE) logs -f dqd
+
+dqd: ## Run the data quality checks now
+	$(COMPOSE) exec dqd /app/run_dqd.sh
 
 logs: ## Tail Postgres logs
 	$(COMPOSE) logs -f postgres
+
+logs-init: ## Show the omop-init log (vocabulary load, finalize)
+	$(COMPOSE) logs omop-init
 
 ps: ## Show container status
 	$(COMPOSE) ps
@@ -101,8 +126,8 @@ update-ddl: ## Re-download the OHDSI CDM 5.4 DDL scripts into ddl/
 	done
 	@echo "Vendored DDL refreshed. 'make reset' to rebuild the database from it."
 
-reset: ## DESTROY the data volume and rebuild the schema from scratch
-	@echo "This deletes the omop_pgdata volume — all data in $(POSTGRES_DB) is lost."
+reset: ## DESTROY the data volumes and rebuild the schema from scratch
+	@echo "This deletes all volumes of the stack — all data in $(POSTGRES_DB) is lost."
 	@read -p "Type 'yes' to continue: " ans; [ "$$ans" = "yes" ] || { echo "Aborted."; exit 1; }
-	$(COMPOSE) down -v
+	$(COMPOSE) --profile quality down -v
 	@$(MAKE) --no-print-directory up

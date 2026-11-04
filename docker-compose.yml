@@ -1,5 +1,9 @@
 name: omop
 
+# Data quality apps, all in the `quality` profile: `make quality-up` starts them.
+include:
+  - apps/compose.yml
+
 services:
   postgres:
     # Debian-based, not -alpine: the initdb and helper scripts are bash, and glibc/ICU
@@ -50,6 +54,35 @@ services:
       # The DDL apply runs inside initdb, before Postgres accepts connections.
       start_period: 60s
 
+  omop-init:
+    # Loads the vocabulary (./vocabulary or VOCAB_URL) and applies constraints and
+    # indices. Runs on every `make up`; each step is skipped when already done.
+    # Follow it with `make logs-init`.
+    build: ./docker/omop-init
+    image: omop-deployment-init:local
+    container_name: omop-init
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-omop}
+      PGUSER: ${POSTGRES_USER:-omop}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      CDM_SCHEMA: ${CDM_SCHEMA:-cdm}
+      # Optional; only used when ./vocabulary holds no CSVs and the vocabulary is empty.
+      VOCAB_URL: ${VOCAB_URL:-}
+      # Set to false to load and finalize by hand with `make load-vocab` / `make finalize`.
+      INIT_LOAD_VOCAB: ${INIT_LOAD_VOCAB:-true}
+      INIT_FINALIZE: ${INIT_FINALIZE:-true}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./ddl:/ddl:ro
+      - ./vocabulary:/vocabulary:ro
+      # Keeps the VOCAB_URL download, so a reload does not fetch it again.
+      - omop_vocab_cache:/vocab_cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: omop-pgadmin
@@ -72,3 +105,4 @@ services:
 volumes:
   omop_pgdata:
   omop_pgadmin:
+  omop_vocab_cache:

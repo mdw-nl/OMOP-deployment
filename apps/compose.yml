@@ -1,0 +1,98 @@
+# Data quality apps for an OMOP database: OHDSI Data Quality Dashboard checks and an
+# Apache Superset dashboard of their results.
+# Shared by both setups, which only differ in how they reach the database (OMOP_DB_*):
+#   - the parent stack includes this file from docker-compose.yml: `make quality-up`
+#   - existing-postgres runs it as compose project omop-apps:    `make quality-up`
+#
+# Every service is in the `quality` profile, so a plain `make up` does not start them.
+# No variable is required here (`:?`): Compose resolves the whole file even when the
+# profile is off, so quality-init checks the passwords instead.
+
+x-app: &app
+  profiles: ["quality"]
+  # host.docker.internal resolves to the Docker host on Linux too.
+  extra_hosts:
+    - host.docker.internal:host-gateway
+
+services:
+  quality-init:
+    <<: *app
+    # Creates the dqd role, the dqd_results schema, a cdm_source row if missing, and the
+    # superset / superset_reader roles with the `superset` metadata database.
+    # Runs on every `make quality-up` as an admin role, skipping what already exists.
+    build: ../docker/quality-init
+    image: omop-deployment-quality-init:local
+    environment:
+      PGHOST: ${OMOP_DB_HOST:-postgres}
+      PGPORT: ${OMOP_DB_PORT:-5432}
+      PGDATABASE: ${OMOP_DB_NAME:-omop}
+      PGUSER: ${OMOP_DB_ADMIN_USER:-omop}
+      PGPASSWORD: ${OMOP_DB_ADMIN_PASSWORD:-}
+      CDM_SCHEMA: ${CDM_SCHEMA:-cdm}
+      DQD_PASSWORD: ${DQD_PASSWORD:-}
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:-}
+      SUPERSET_READER_PASSWORD: ${SUPERSET_READER_PASSWORD:-}
+
+  dqd:
+    <<: *app
+    # OHDSI Data Quality Dashboard checks, on start and on DQD_SCHEDULE; `make dqd` runs
+    # them now. Results go to the dqd_results schema.
+    build: ../docker/dqd
+    image: omop-deployment-dqd:local
+    restart: unless-stopped
+    environment:
+      DQD_DB_HOST: ${OMOP_DB_HOST:-postgres}
+      DQD_DB_PORT: ${OMOP_DB_PORT:-5432}
+      DQD_DB_NAME: ${OMOP_DB_NAME:-omop}
+      DQD_DB_PASSWORD: ${DQD_PASSWORD:-}
+      CDM_SCHEMA: ${CDM_SCHEMA:-cdm}
+      DQD_THREADS: ${DQD_THREADS:-2}
+      # Cron expression, UTC (default: every night at 02:00)
+      DQD_SCHEDULE: ${DQD_SCHEDULE:-0 2 * * *}
+      DQD_RUN_ON_START: ${DQD_RUN_ON_START:-true}
+    volumes:
+      # JSON output of every run, readable by the DQD viewer
+      - dqd_output:/output
+    depends_on:
+      quality-init:
+        condition: service_completed_successfully
+
+  superset-init:
+    <<: *app
+    # Prepares the Superset metadata database and admin user, and (re)imports the
+    # "OMOP Data Quality" dashboard from docker/superset/assets on every start.
+    build: ../docker/superset
+    image: omop-deployment-superset:local
+    command: ["/app/docker/omop-init.sh"]
+    environment: &superset-env
+      OMOP_DB_HOST: ${OMOP_DB_HOST:-postgres}
+      OMOP_DB_PORT: ${OMOP_DB_PORT:-5432}
+      OMOP_DB_NAME: ${OMOP_DB_NAME:-omop}
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:-}
+      SUPERSET_READER_PASSWORD: ${SUPERSET_READER_PASSWORD:-}
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-}
+      # Optional; generated on first start and kept in the superset_home volume.
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-}
+    volumes:
+      - superset_home:/app/superset_home
+    depends_on:
+      quality-init:
+        condition: service_completed_successfully
+
+  superset:
+    <<: *app
+    image: omop-deployment-superset:local
+    restart: unless-stopped
+    environment: *superset-env
+    ports:
+      - "${SUPERSET_PORT:-8088}:8088"
+    volumes:
+      - superset_home:/app/superset_home
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+
+volumes:
+  dqd_output:
+  superset_home:
