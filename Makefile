@@ -31,7 +31,7 @@ QUALITY_SERVICES := quality-init dqd superset-init superset
 DDL_BASE := https://raw.githubusercontent.com/OHDSI/CommonDataModel/main/inst/ddl/5.4/postgresql
 DDL_FILES := ddl indices constraints primary_keys
 
-.PHONY: help init up down logs logs-init ps psql load-vocab finalize vocab-reader verify update-ddl reset quality-up quality-down logs-dqd dqd
+.PHONY: help init up down logs logs-init ps psql load-vocab finalize vocab-reader etl-writer verify update-ddl reset quality-up quality-down logs-dqd dqd
 
 help: ## Show available targets
 	@echo "OMOP CDM 5.4 on Postgres"
@@ -54,6 +54,8 @@ init: ## Create .env from .env.example
 
 up: ## Start Postgres + pgAdmin, wait until the database is ready
 	@test -f .env || { echo "No .env — run 'make init' first."; exit 1; }
+	@# The Postgres entrypoint sources non-executable initdb scripts instead of running them.
+	@chmod +x initdb/*.sh
 	@# omop-init is followed until it exits, so its vocabulary load shows here.
 	@# --since: a restarted omop-init keeps the log of its earlier runs.
 	@since=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
@@ -107,6 +109,11 @@ vocab-reader: ## Create/update the read-only vocabulary role (VOCAB_READER_* in 
 	@test -n "$(VOCAB_READER_PASSWORD)" || { echo "Set VOCAB_READER_PASSWORD in .env first."; exit 1; }
 	$(COMPOSE) up -d postgres
 	$(DC_EXEC) bash /docker-entrypoint-initdb.d/02_vocab_reader.sh
+
+etl-writer: ## Create/update the ETL write role (ETL_WRITER_* in .env)
+	@test -n "$(ETL_WRITER_PASSWORD)" || { echo "Set ETL_WRITER_PASSWORD in .env first."; exit 1; }
+	$(COMPOSE) up -d postgres
+	$(DC_EXEC) bash /docker-entrypoint-initdb.d/03_etl_writer.sh
 
 verify: ## Report schema, key/index and row counts
 	@$(DC_EXEC) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -X -q \

@@ -92,6 +92,18 @@ Leave the password empty to skip it. On a volume that already exists, set it and
 `make vocab-reader`, which is also how you change the password later. Grants survive
 `make load-vocab`, since that truncates rather than recreates the tables.
 
+## ETL writer user
+
+Set `ETL_WRITER_PASSWORD` (and optionally `ETL_WRITER_USER`, default
+`omop_etl_writer`) in `.env` and container init creates a login role for the ETL
+pipeline with `INSERT` and `DELETE` on the tables in the CDM schema, and nothing
+more: no `SELECT`, `UPDATE`, `TRUNCATE` or DDL. Postgres needs `SELECT` on every
+column a `WHERE` clause reads, so this role can empty a table (`DELETE FROM ...`)
+but not delete selected rows.
+
+Leave the password empty to skip it. On a volume that already exists, set it and run
+`make etl-writer`, which is also how you change the password later.
+
 ## Data quality checks (DQD)
 
 Optional, and off by default: `make quality-up` starts the stack and then the
@@ -170,6 +182,7 @@ the dashboard (dashboard menu "Download" > "Export YAML"), replace the contents 
 | `make load-vocab` | Load Athena CSVs from `./vocabulary` |
 | `make finalize` | Apply constraints + indices, refresh statistics |
 | `make vocab-reader` | Create/update the read-only vocabulary role on a running stack |
+| `make etl-writer` | Create/update the ETL write role on a running stack |
 | `make verify` | Report schemas, table/key/index counts, row counts |
 | `make update-ddl` | Re-download the OHDSI DDL into `ddl/` |
 | `make reset` | **Destroys the volume** and rebuilds the schema (prompts first) |
@@ -186,6 +199,7 @@ initdb/                runs once, on an empty volume only
   00_schemas.sh          creates cdm / results / temp
   01_apply_ddl.sh        substitutes @cdmDatabaseSchema, applies DDL + primary keys
   02_vocab_reader.sh     optional read-only role on the vocabulary tables
+  03_etl_writer.sh       optional INSERT/DELETE role for the ETL pipeline
 docker/omop-init/      runs on every `make up`: vocabulary from ./vocabulary or VOCAB_URL,
                        then finalize; each step skipped when already done
 docker/quality-init/   cdm_source placeholder row, dqd role and dqd_results schema,

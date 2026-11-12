@@ -22,6 +22,9 @@ services:
       # Consumed by initdb/02_vocab_reader.sh; empty password skips the role.
       VOCAB_READER_USER: ${VOCAB_READER_USER:-vocab_reader}
       VOCAB_READER_PASSWORD: ${VOCAB_READER_PASSWORD:-}
+      # Consumed by initdb/03_etl_writer.sh; empty password skips the role.
+      ETL_WRITER_USER: ${ETL_WRITER_USER:-omop_etl_writer}
+      ETL_WRITER_PASSWORD: ${ETL_WRITER_PASSWORD:-}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
